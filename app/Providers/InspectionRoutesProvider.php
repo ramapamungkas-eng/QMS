@@ -12,34 +12,35 @@ class InspectionRoutesProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->singleton('inspections.routes', function () {
-            return new class
-            {
-                public function register(): void
-                {
-                    if (! Schema::hasTable('work_station_types')) {
-                        return;
-                    }
+        //
+    }
 
-                    $typeSlugs = app(ChecklistTemplateService::class)->allSlugs();
+    public function boot(): void
+    {
+        try {
+            if (! Schema::hasTable('work_station_types')) {
+                return;
+            }
 
-                    foreach ($typeSlugs as $slug) {
-                        $stationType = StationType::where('slug', $slug)->first();
+            $typeSlugs = app(ChecklistTemplateService::class)->allSlugs();
 
-                        if ($stationType === null) {
-                            continue;
-                        }
+            foreach ($typeSlugs as $slug) {
+                $stationType = StationType::where('slug', $slug)->first();
 
-                        Route::livewire("/{$slug}", 'pages::inspections.checklist.index', ['type' => $slug])
-                            ->middleware("process:{$stationType->process->name}")
-                            ->name("inspections.{$slug}.index");
-
-                        Route::livewire("/{$slug}/create", 'pages::inspections.checklist.create', ['type' => $slug])
-                            ->middleware("process:{$stationType->process->name}")
-                            ->name("inspections.{$slug}.create");
-                    }
+                if ($stationType === null) {
+                    continue;
                 }
-            };
-        });
+
+                Route::livewire("/{$slug}", 'pages::inspections.checklist.index', ['type' => $slug])
+                    ->middleware("process:{$stationType->process->name}")
+                    ->name("inspections.{$slug}.index");
+
+                Route::livewire("/{$slug}/create", 'pages::inspections.checklist.create', ['type' => $slug])
+                    ->middleware("process:{$stationType->process->name}")
+                    ->name("inspections.{$slug}.create");
+            }
+        } catch (\Exception $e) {
+            return;
+        }
     }
 }

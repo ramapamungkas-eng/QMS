@@ -39,10 +39,6 @@ Route::middleware('auth')->group(function () {
         })->name('reports.download');
     });
 
-    Route::prefix('inspections')->group(function () {
-        app('inspections.routes')->register();
-    });
-
     Route::middleware(EnsureUserIsAdmin::class)->group(function () {
 
         Route::prefix('users')->group(function () {
