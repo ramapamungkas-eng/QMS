@@ -50,7 +50,7 @@ class extends Component
 
     public function mount(): void
     {
-        $this->workStationType = StationType::where('slug', request()->segment(2))->first();
+        $this->workStationType = StationType::where('slug', request()->segment(1))->first();
         [, $this->productionDate] = ShiftResolver::resolve(now());
     }
 
