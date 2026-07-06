@@ -1,10 +1,12 @@
 <?php
 
 use App\Enums\MeasurementType;
-use App\Enums\WorkStationType;
 use App\Models\HardwareType;
 use App\Models\Part;
 use App\Models\PartHardwareMapping;
+use App\Models\StationType;
+use App\Models\WeldLengthStandard;
+use App\Models\WorkStation;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -48,7 +50,13 @@ class extends Component {
 
     public string $mapping_unit = '';
 
-    // --- Weld length standard (Robot Spot) ---
+    // --- Weld length standard modal state (Robot Spot) ---
+    public bool $showWeldModal = false;
+
+    public ?int $editingWeldStandardId = null;
+
+    public string $weld_work_station_id = '';
+
     public string $weld_min_length = '';
 
     public string $weld_max_length = '';
@@ -64,13 +72,7 @@ class extends Component {
         $this->part_name = $part->part_name;
         $this->model = (string) $part->model;
         $this->variant = (string) $part->variant;
-        $this->stationTypes = $part->stationTypes->pluck('work_station_type')->toArray();
-
-        if ($weldStandard = $part->weldLengthStandard) {
-            $this->weld_min_length = (string) $weldStandard->min_length;
-            $this->weld_max_length = (string) $weldStandard->max_length;
-            $this->weld_unit = $weldStandard->unit;
-        }
+        $this->stationTypes = $part->stationTypes->pluck('station_type_id')->map(fn ($id) => (string) $id)->toArray();
     }
 
     public function rules(): array
@@ -82,7 +84,7 @@ class extends Component {
             'variant' => ['nullable', 'string', 'max:100'],
             'photo' => ['nullable', 'image', 'max:2048'],
             'stationTypes' => ['required', 'array', 'min:1'],
-            'stationTypes.*' => [Rule::enum(WorkStationType::class)],
+            'stationTypes.*' => ['exists:work_station_types,id'],
         ];
     }
 
@@ -96,8 +98,8 @@ class extends Component {
 
         $this->part->update($data);
         $this->part->stationTypes()->delete();
-        foreach ($this->stationTypes as $type) {
-            $this->part->stationTypes()->create(['work_station_type' => $type]);
+        foreach ($this->stationTypes as $typeId) {
+            $this->part->stationTypes()->create(['station_type_id' => $typeId]);
         }
 
         $this->success('Part updated.', position: 'toast-bottom');
@@ -123,7 +125,7 @@ class extends Component {
 
     public function stationTypeOptions(): array
     {
-        return WorkStationType::cases();
+        return StationType::orderBy('name')->get()->all();
     }
 
     public function openCreateMapping(): void
@@ -208,30 +210,76 @@ class extends Component {
         $this->success('Hardware mapping removed.', position: 'toast-bottom');
     }
 
-    // --- Weld length standard (single record per part) ---
+    // --- Weld length standards CRUD (per work station for Robot Spot) ---
+
+    public function robotWorkStationOptions(): array
+    {
+        return WorkStation::whereHas('stationType', fn ($q) => $q->where('slug', 'robot-spot'))
+            ->orderBy('name')
+            ->get()
+            ->map(fn (WorkStation $ws) => ['id' => $ws->id, 'name' => $ws->name])
+            ->all();
+    }
+
+    public function openCreateWeldStandard(): void
+    {
+        $this->reset([
+            'editingWeldStandardId',
+            'weld_work_station_id',
+            'weld_min_length',
+            'weld_max_length',
+            'weld_unit',
+        ]);
+        $this->weld_unit = 'mm';
+        $this->resetValidation();
+        $this->showWeldModal = true;
+    }
+
+    public function openEditWeldStandard(int $standardId): void
+    {
+        $standard = WeldLengthStandard::findOrFail($standardId);
+
+        $this->editingWeldStandardId = $standard->id;
+        $this->weld_work_station_id = (string) $standard->work_station_id;
+        $this->weld_min_length = (string) $standard->min_length;
+        $this->weld_max_length = (string) $standard->max_length;
+        $this->weld_unit = $standard->unit;
+
+        $this->resetValidation();
+        $this->showWeldModal = true;
+    }
 
     public function saveWeldStandard(): void
     {
-        if (blank($this->weld_min_length) && blank($this->weld_max_length)) {
-            $this->part->weldLengthStandard?->delete();
-            $this->success('Weld length standard cleared.', position: 'toast-bottom');
-
-            return;
-        }
-
         $data = $this->validate([
+            'weld_work_station_id' => ['required', 'exists:work_stations,id'],
             'weld_min_length' => ['required', 'numeric', 'lt:weld_max_length'],
             'weld_max_length' => ['required', 'numeric'],
             'weld_unit' => ['required', 'string', 'max:20'],
         ]);
 
-        $this->part->weldLengthStandard()->updateOrCreate([], [
+        $standardData = [
+            'work_station_id' => $data['weld_work_station_id'],
             'min_length' => $data['weld_min_length'],
             'max_length' => $data['weld_max_length'],
             'unit' => $data['weld_unit'],
-        ]);
+        ];
 
+        if ($this->editingWeldStandardId) {
+            WeldLengthStandard::findOrFail($this->editingWeldStandardId)->update($standardData);
+        } else {
+            $this->part->weldLengthStandards()->create($standardData);
+        }
+
+        $this->showWeldModal = false;
         $this->success('Weld length standard saved.', position: 'toast-bottom');
+    }
+
+    public function deleteWeldStandard(int $standardId): void
+    {
+        WeldLengthStandard::findOrFail($standardId)->delete();
+
+        $this->success('Weld length standard removed.', position: 'toast-bottom');
     }
 
     public function with(): array
@@ -241,10 +289,19 @@ class extends Component {
             'hardwareTypeOptions' => $this->hardwareTypeOptions(),
             'measurementTypeOptions' => $this->measurementTypeOptions(),
             'stationTypeOptions' => $this->stationTypeOptions(),
+            'stationSpotId' => StationType::where('slug', 'station-spot')->value('id'),
+            'robotSpotId' => StationType::where('slug', 'robot-spot')->value('id'),
+            'weldStandards' => $this->part->weldLengthStandards()->with('workStation')->get(),
+            'robotWorkStationOptions' => $this->robotWorkStationOptions(),
             'mappingHeaders' => [
                 ['key' => 'hardware', 'label' => 'Hardware'],
                 ['key' => 'measurement', 'label' => 'Measurement'],
                 ['key' => 'usage_qty', 'label' => 'Usage Qty', 'class' => 'w-24'],
+                ['key' => 'standard', 'label' => 'Standard'],
+                ['key' => 'actions', 'label' => '', 'class' => 'w-24', 'sortable' => false],
+            ],
+            'weldHeaders' => [
+                ['key' => 'work_station', 'label' => 'Work Station', 'class' => 'w-40'],
                 ['key' => 'standard', 'label' => 'Standard'],
                 ['key' => 'actions', 'label' => '', 'class' => 'w-24', 'sortable' => false],
             ],
@@ -315,8 +372,8 @@ class extends Component {
                         <div class="flex flex-wrap gap-4">
                             @foreach ($stationTypeOptions as $st)
                                 <label class="flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-3 text-sm transition hover:border-base-content/30 has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:font-medium">
-                                    <input type="checkbox" wire:model.live="stationTypes" value="{{ $st->value }}" class="checkbox checkbox-primary checkbox-sm" />
-                                    {{ $st->label() }}
+                                    <input type="checkbox" wire:model.live="stationTypes" value="{{ $st->id }}" class="checkbox checkbox-primary checkbox-sm" />
+                                    {{ $st->name }}
                                 </label>
                             @endforeach
                         </div>
@@ -331,7 +388,7 @@ class extends Component {
                 </x-card>
             </x-form>
 
-            @if (in_array(\App\Enums\WorkStationType::StationSpot->value, $stationTypes))
+            @if (in_array($stationSpotId, $stationTypes))
             <!-- HARDWARE & MEASUREMENT STANDARDS (STATION SPOT) -->
             <x-card title="Hardware & Measurement Standards" subtitle="Configure hardware types and measurement tolerances for Station Spot welding judgement." shadow>
                 <x-slot:menu>
@@ -384,21 +441,42 @@ class extends Component {
             </x-card>
             @endif
 
-            @if (in_array(\App\Enums\WorkStationType::RobotSpot->value, $stationTypes))
-            <!-- WELD LENGTH STANDARD (ROBOT SPOT) -->
-            <x-form wire:submit="saveWeldStandard">
-                <x-card title="Weld Length Standard" subtitle="Used for Robot Spot welding judgement. Leave blank if this part doesn't go through Robot Spot." shadow>
-                    <div class="grid gap-4 sm:grid-cols-3">
-                        <x-input label="Min length" wire:model="weld_min_length" icon="o-arrows-right-left" />
-                        <x-input label="Max length" wire:model="weld_max_length" icon="o-arrows-right-left" />
-                        <x-input label="Unit" wire:model="weld_unit" />
-                    </div>
+            @if (in_array($robotSpotId, $stationTypes))
+            <!-- WELD LENGTH STANDARDS (ROBOT SPOT) -->
+            <x-card title="Weld Length Standards" subtitle="Per work station. Used for Robot Spot welding judgement." shadow>
+                <x-slot:menu>
+                    <x-button label="Add standard" icon="o-plus" class="btn-sm" wire:click="openCreateWeldStandard" />
+                </x-slot:menu>
 
-                    <x-slot:actions>
-                        <x-button label="Save weld standard" icon="o-check" class="btn-primary" type="submit" spinner="saveWeldStandard" />
-                    </x-slot:actions>
-                </x-card>
-            </x-form>
+                @if ($weldStandards->isEmpty())
+                    <p class="rounded-lg border border-dashed border-base-300 px-4 py-6 text-center text-sm text-base-content/50">
+                        No weld length standards configured for this part.
+                    </p>
+                @else
+                    <x-table :headers="$weldHeaders" :rows="$weldStandards" sortable>
+                        @scope('cell_work_station', $standard)
+                            <span class="font-medium">{{ $standard->workStation?->name ?? '—' }}</span>
+                        @endscope
+
+                        @scope('cell_standard', $standard)
+                            <span class="font-mono text-sm">{{ $standard->min_length }}–{{ $standard->max_length }} {{ $standard->unit }}</span>
+                        @endscope
+
+                        @scope('cell_actions', $standard)
+                            <div class="flex gap-1">
+                                <x-button icon="o-pencil" wire:click="openEditWeldStandard({{ $standard->id }})" class="btn-ghost btn-sm" />
+                                <x-button
+                                    icon="o-trash"
+                                    wire:click="deleteWeldStandard({{ $standard->id }})"
+                                    wire:confirm="Remove this weld length standard?"
+                                    spinner
+                                    class="btn-ghost btn-sm text-error"
+                                />
+                            </div>
+                        @endscope
+                    </x-table>
+                @endif
+            </x-card>
             @endif
         </div>
     </div>
@@ -420,6 +498,24 @@ class extends Component {
         <x-slot:actions>
             <x-button label="Cancel" @click="$wire.showMappingModal = false" />
             <x-button label="Save" icon="o-check" class="btn-primary" wire:click="saveMapping" spinner="saveMapping" />
+        </x-slot:actions>
+    </x-modal>
+
+    <!-- ADD/EDIT WELD LENGTH STANDARD MODAL -->
+    <x-modal wire:model="showWeldModal" :title="$editingWeldStandardId ? 'Edit weld length standard' : 'Add weld length standard'" separator>
+        <div class="grid gap-4">
+            <x-select label="Work Station" wire:model="weld_work_station_id" :options="$robotWorkStationOptions" placeholder="Select robot work station..." />
+
+            <div class="grid grid-cols-3 gap-3">
+                <x-input label="Min length" wire:model="weld_min_length" />
+                <x-input label="Max length" wire:model="weld_max_length" />
+                <x-input label="Unit" wire:model="weld_unit" />
+            </div>
+        </div>
+
+        <x-slot:actions>
+            <x-button label="Cancel" @click="$wire.showWeldModal = false" />
+            <x-button label="Save" icon="o-check" class="btn-primary" wire:click="saveWeldStandard" spinner="saveWeldStandard" />
         </x-slot:actions>
     </x-modal>
 </div>

@@ -51,10 +51,11 @@
                     ['title' => 'Parts', 'link' => route('parts.index')],
                     ['title' => 'Hardware Types', 'link' => route('hardware.index')],
                     ['title' => 'Work Stations', 'link' => route('work-stations.index')],
+                    ['title' => 'Checklists', 'link' => route('checklists.index')],
                 ],
             ],
 
-            ['title' => 'Reports', 'icon' => 'o-chart-bar', 'link' => '/reports'], // TODO: route('reports.index')
+            ['title' => 'Reports', 'icon' => 'o-chart-bar', 'link' => route('reports.index')],
 
             [
                 'title' => 'Management',

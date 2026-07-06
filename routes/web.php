@@ -1,7 +1,11 @@
 <?php
 
 use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Models\StationType;
+use App\Services\ChecklistTemplateService;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 // Users will be redirected to this route if not logged in
 Route::livewire('/login', 'pages::login')->name('login');
@@ -19,43 +23,43 @@ Route::middleware('auth')->group(function () {
 
     Route::livewire('/', 'pages::index');
 
+    Route::prefix('reports')->group(function () {
+        Route::livewire('/', 'pages::reports.index')->name('reports.index');
+        Route::get('/download/{filename}', function (string $filename) {
+            $path = 'reports/'.$filename;
+
+            if (! Storage::disk('public')->exists($path)) {
+                abort(404, 'Report not found.');
+            }
+
+            $headers = [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ];
+
+            return Storage::disk('public')->download($path, $filename, $headers);
+        })->name('reports.download');
+    });
+
     Route::prefix('inspections')->group(function () {
+        if (Schema::hasTable('work_station_types')) {
+            $typeSlugs = app(ChecklistTemplateService::class)->allSlugs();
 
-        Route::livewire('/stamping', 'pages::inspections.stamping.index')
-            ->middleware('process:Stamping')
-            ->name('inspections.stamping.index');
+            foreach ($typeSlugs as $slug) {
+                $stationType = StationType::where('slug', $slug)->first();
 
-        Route::livewire('/stamping/create', 'pages::inspections.stamping.create')
-            ->middleware('process:Stamping')
-            ->name('inspections.stamping.create');
+                if ($stationType === null) {
+                    continue;
+                }
 
-        Route::livewire('/station-spot', 'pages::inspections.station-spot.index')
-            ->middleware('process:Welding')
-            ->name('inspections.station-spot.index');
+                Route::livewire("/{$slug}", 'pages::inspections.checklist.index', ['type' => $slug])
+                    ->middleware("process:{$stationType->process->name}")
+                    ->name("inspections.{$slug}.index");
 
-        Route::livewire('/station-spot/create', 'pages::inspections.station-spot.create')
-            ->middleware('process:Welding')
-            ->name('inspections.station-spot.create');
-
-        Route::livewire('/portable-spot', 'pages::inspections.portable-spot.index')
-            ->middleware('process:Welding')
-            ->name('inspections.portable-spot.index');
-
-        Route::livewire('/portable-spot/create', 'pages::inspections.portable-spot.create')
-            ->middleware('process:Welding')
-            ->name('inspections.portable-spot.create');
-
-        Route::livewire('/robot-spot', 'pages::inspections.robot-spot.index')
-            ->middleware('process:Welding')
-            ->name('inspections.robot-spot.index');
-
-        Route::livewire('/robot-spot/create', 'pages::inspections.robot-spot.create')
-            ->middleware('process:Welding')
-            ->name('inspections.robot-spot.create');
-
-        // Route::livewire('/welding', 'pages::inspections.welding.index')
-        //    ->middleware('process:Welding')
-        //    ->name('inspections.welding.index');
+                Route::livewire("/{$slug}/create", 'pages::inspections.checklist.create', ['type' => $slug])
+                    ->middleware("process:{$stationType->process->name}")
+                    ->name("inspections.{$slug}.create");
+            }
+        }
     });
 
     Route::middleware(EnsureUserIsAdmin::class)->group(function () {
@@ -76,12 +80,20 @@ Route::middleware('auth')->group(function () {
             Route::livewire('/', 'pages::parts.index')->name('parts.index');
             Route::livewire('/create', 'pages::parts.create')->name('parts.create');
             Route::livewire('/{part}/edit', 'pages::parts.edit')->name('parts.edit');
+            Route::livewire('/tutorial', 'pages::parts.tutorial')->name('parts.tutorial');
         });
 
         Route::prefix('work-stations')->group(function () {
             Route::livewire('/', 'pages::work-stations.index')->name('work-stations.index');
             Route::livewire('/create', 'pages::work-stations.create')->name('work-stations.create');
-            Route::livewire('/{work}/edit', 'pages::work-stations.edit')->name('work-stations.edit');
+            Route::livewire('/{workStation}/edit', 'pages::work-stations.edit')->name('work-stations.edit');
+        });
+
+        Route::prefix('checklists')->group(function () {
+            Route::livewire('/', 'pages::checklists.index')->name('checklists.index');
+            Route::livewire('/create', 'pages::checklists.create')->name('checklists.create');
+            Route::livewire('/{template}/edit', 'pages::checklists.edit')->name('checklists.edit');
+            Route::livewire('/tutorial', 'pages::checklists.tutorial')->name('checklists.tutorial');
         });
 
     });

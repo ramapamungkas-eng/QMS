@@ -1,11 +1,12 @@
 <?php
 
-use App\Enums\JudgementResult;
 use App\Enums\Shift;
-use App\Enums\WorkStationType;
 use App\Models\InspectionRecord;
 use App\Models\Part;
+use App\Models\StationType;
 use App\Models\WorkStation;
+use App\Services\ChecklistTemplateService;
+use App\Services\InspectionStatsService;
 use App\Support\ShiftResolver;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,10 +20,12 @@ use Mary\Traits\Toast;
 
 new
 #[Layout('layouts.app')]
-#[Title('Stamping Inspections')]
+#[Title('Inspections')]
 class extends Component
 {
     use Toast, WithPagination;
+
+    public ?StationType $workStationType = null;
 
     #[Url(history: true)]
     public string $search = '';
@@ -47,6 +50,7 @@ class extends Component
 
     public function mount(): void
     {
+        $this->workStationType = StationType::where('slug', request()->segment(2))->first();
         [, $this->productionDate] = ShiftResolver::resolve(now());
     }
 
@@ -102,7 +106,7 @@ class extends Component
 
     public function workStationOptions(): array
     {
-        return WorkStation::where('type', WorkStationType::Stamping)
+        return WorkStation::where('station_type_id', $this->workStationType->id)
             ->orderBy('name')
             ->get()
             ->map(fn (WorkStation $station) => ['id' => $station->id, 'name' => $station->name])
@@ -130,54 +134,73 @@ class extends Component
 
     public function dailyStats(): array
     {
-        $targetDate = Carbon::parse($this->productionDate);
+        return app(InspectionStatsService::class)->dailyByType(
+            $this->workStationType,
+            $this->productionDate,
+            ['search' => $this->search, 'workStationId' => $this->workStationId],
+        );
+    }
 
-        $base = InspectionRecord::query()
-            ->whereDate('production_date', $targetDate)
-            ->whereHas('workStation', fn (Builder $q) => $q->where('type', WorkStationType::Stamping))
-            ->when($this->search, function (Builder $q) {
-                $q->whereHas('part', function (Builder $pq) {
-                    $pq->where('part_number', 'like', "%{$this->search}%")
-                        ->orWhere('part_name', 'like', "%{$this->search}%");
-                });
-            })
-            ->when($this->workStationId, fn (Builder $q) => $q->where('work_station_id', $this->workStationId));
+    protected function overallJudgementFromValues($fieldValues): ?string
+    {
+        $autoJudgements = $fieldValues
+            ->filter(fn ($fv) => $fv->field?->has_auto_judge)
+            ->pluck('auto_judgement')
+            ->filter();
 
-        $total = (clone $base)->count();
-        $ok = (clone $base)->whereHas('stampingDetail', fn (Builder $q) => $q->where('manual_judgement', JudgementResult::Ok))->count();
-        $ng = (clone $base)->whereHas('stampingDetail', fn (Builder $q) => $q->where('manual_judgement', JudgementResult::Ng))->count();
-        $repair = (clone $base)->whereHas('stampingDetail', fn (Builder $q) => $q->where('manual_judgement', JudgementResult::Repair))->count();
-        $partsChecked = (clone $base)->distinct('part_id')->count('part_id');
-        $passRate = $total > 0 ? (int) round(($ok / $total) * 100) : 0;
+        if ($autoJudgements->isNotEmpty()) {
+            if ($autoJudgements->every(fn ($j) => $j === 'ok')) {
+                return 'ok';
+            }
 
-        $dayBase = (clone $base)->where('shift', Shift::Day);
-        $nightBase = (clone $base)->where('shift', Shift::Night);
+            if ($autoJudgements->contains('ng')) {
+                return 'ng';
+            }
 
-        $dayTotal = (clone $dayBase)->count();
-        $nightTotal = (clone $nightBase)->count();
-        $dayOk = (clone $dayBase)->whereHas('stampingDetail', fn (Builder $q) => $q->where('manual_judgement', JudgementResult::Ok))->count();
-        $nightOk = (clone $nightBase)->whereHas('stampingDetail', fn (Builder $q) => $q->where('manual_judgement', JudgementResult::Ok))->count();
-        $dayNg = (clone $dayBase)->whereHas('stampingDetail', fn (Builder $q) => $q->where('manual_judgement', JudgementResult::Ng))->count();
-        $nightNg = (clone $nightBase)->whereHas('stampingDetail', fn (Builder $q) => $q->where('manual_judgement', JudgementResult::Ng))->count();
-        $dayRate = $dayTotal > 0 ? (int) round(($dayOk / $dayTotal) * 100) : 0;
-        $nightRate = $nightTotal > 0 ? (int) round(($nightOk / $nightTotal) * 100) : 0;
+            return null;
+        }
 
-        return [
-            'total' => $total,
-            'ok' => $ok,
-            'ng' => $ng,
-            'repair' => $repair,
-            'pass_rate' => $passRate,
-            'parts_checked' => $partsChecked,
-            'day_total' => $dayTotal,
-            'night_total' => $nightTotal,
-            'day_ok' => $dayOk,
-            'night_ok' => $nightOk,
-            'day_ng' => $dayNg,
-            'night_ng' => $nightNg,
-            'day_rate' => $dayRate,
-            'night_rate' => $nightRate,
-        ];
+        $manual = $fieldValues
+            ->where('field.field_type', 'enum')
+            ->pluck('value')
+            ->filter();
+
+        if ($manual->isNotEmpty()) {
+            $lowered = $manual->map(fn ($v) => strtolower($v));
+
+            if ($lowered->contains('ng')) {
+                return 'ng';
+            }
+
+            if ($lowered->contains('repair')) {
+                return 'repair';
+            }
+
+            if ($lowered->contains('ok')) {
+                return 'ok';
+            }
+
+            return null;
+        }
+
+        $booleans = $fieldValues
+            ->where('field.field_type', 'boolean')
+            ->pluck('value')
+            ->filter(fn ($v) => $v !== null && $v !== '');
+
+        if ($booleans->isNotEmpty()) {
+            if ($booleans->every(fn ($v) => $v === '1')) {
+                return 'ok';
+            }
+
+            if ($booleans->contains('0')) {
+                return 'ng';
+            }
+
+            return null;
+        }
+
+        return null;
     }
 
     public function showStageHistory(int $partId, string $stage, string $shift): void
@@ -189,12 +212,12 @@ class extends Component
         $this->selectedShift = $shift;
 
         $records = InspectionRecord::query()
-            ->with(['workStation', 'checker', 'stampingDetail'])
+            ->with(['workStation', 'checker', 'fieldValues.field', 'fieldValues.source.hardwareType'])
             ->where('part_id', $partId)
             ->where('stage', $stage)
             ->where('shift', $shift)
             ->whereDate('production_date', $targetDate)
-            ->whereHas('workStation', fn (Builder $q) => $q->where('type', WorkStationType::Stamping))
+            ->whereHas('workStation', fn (Builder $q) => $q->where('station_type_id', $this->workStationType->id))
             ->when($this->workStationId, fn (Builder $q) => $q->where('work_station_id', $this->workStationId))
             ->orderBy('checked_at')
             ->get();
@@ -207,7 +230,20 @@ class extends Component
         }
 
         $this->stageHistory = $records->map(function ($record, $index) {
-            $detail = $record->stampingDetail;
+            $judgement = $this->overallJudgementFromValues($record->fieldValues);
+
+            $detailRows = $record->fieldValues->map(fn ($fv) => [
+                'field_label' => $fv->field?->label ?? '—',
+                'field_type' => $fv->field?->field_type,
+                'field_key' => $fv->field?->field_key ?? '—',
+                'value' => $fv->value,
+                'auto_judgement' => $fv->auto_judgement,
+                'group_index' => $fv->group_index,
+                'source_id' => $fv->source_id,
+                'source_label' => $fv->source?->hardwareType
+                    ? $fv->source->hardwareType->part_name . ' (' . $fv->source->hardwareType->part_number . ')'
+                    : null,
+            ]);
 
             return [
                 'attempt' => $index + 1,
@@ -215,12 +251,8 @@ class extends Component
                 'checker_name' => $record->checker?->name ?? '—',
                 'work_station' => $record->workStation?->name ?? '—',
                 'shift' => $record->shift?->value ?? '—',
-                'is_defect' => $detail?->is_defect,
-                'defect_remarks' => $detail?->defect_remarks,
-                'jig_spec_ok' => $detail?->jig_spec_ok,
-                'jig_remarks' => $detail?->jig_remarks,
-                'manual_judgement' => $detail?->manual_judgement,
-                'judgement_remarks' => $detail?->judgement_remarks,
+                'judgement' => $judgement,
+                'details' => $detailRows,
             ];
         })->all();
 
@@ -232,11 +264,11 @@ class extends Component
         $targetDate = Carbon::parse($this->productionDate);
 
         return Part::query()
-            ->whereHas('stationTypes', fn (Builder $q) => $q->where('work_station_type', WorkStationType::Stamping->value))
+            ->whereHas('stationTypes', fn (Builder $q) => $q->where('station_type_id', $this->workStationType->id))
             ->with(['inspectionRecords' => function ($query) use ($targetDate) {
                 $query->whereDate('production_date', $targetDate)
-                    ->whereHas('workStation', fn (Builder $q) => $q->where('type', WorkStationType::Stamping))
-                    ->with(['workStation', 'stampingDetail'])
+                    ->whereHas('workStation', fn (Builder $q) => $q->where('station_type_id', $this->workStationType->id))
+                    ->with(['workStation', 'fieldValues.field'])
                     ->orderBy('stage');
             }])
             ->when($this->search, function (Builder $q) {
@@ -249,11 +281,15 @@ class extends Component
 
     public function with(): array
     {
+        $slug = $this->workStationType->slug;
+
         return [
             'partsList' => $this->partsList(),
             'headers' => $this->headers(),
             'workStationOptions' => $this->workStationOptions(),
             'stats' => $this->dailyStats(),
+            'slug' => $slug,
+            'createUrl' => route("inspections.{$slug}.create"),
             'stages' => [
                 'start' => ['label' => 'S', 'name' => 'Start'],
                 'middle' => ['label' => 'M', 'name' => 'Middle'],
@@ -264,7 +300,7 @@ class extends Component
 }; ?>
 
 <div>
-    <x-header title="Stamping Inspection Board" subtitle="Daily quality overview for B1–B4 and Fengyu stamping lines." separator progress-indicator>
+    <x-header title="{{ $workStationType->name }} Inspection Board" subtitle="Daily quality overview." separator progress-indicator>
         <x-slot:middle class="!justify-end max-sm:w-full max-sm:mt-2">
             <x-input placeholder="Search part number or name..." wire:model.live.debounce.350ms="search" clearable icon="o-magnifying-glass" class="max-sm:w-full" />
         </x-slot:middle>
@@ -291,7 +327,7 @@ class extends Component
                 @endif
             </div>
 
-            <x-button label="New inspection" link="{{ route('inspections.stamping.create') }}" icon="o-plus" class="btn-primary max-sm:btn-xs" responsive />
+            <x-button label="New inspection" link="{{ $createUrl }}" icon="o-plus" class="btn-primary max-sm:btn-xs" responsive />
         </x-slot:actions>
     </x-header>
 
@@ -443,19 +479,21 @@ class extends Component
 
                                     if ($totalInspections > 0) {
                                         $latestRecord = $stageRecords->sortByDesc('checked_at')->first();
-                                        $judgement = $latestRecord->stampingDetail?->manual_judgement;
+                                        $judgement = $this->overallJudgementFromValues($latestRecord->fieldValues);
+                                        $ngCount = 0;
 
-                                        $ngCount = $stageRecords->filter(fn($r) => $r->stampingDetail?->manual_judgement === JudgementResult::Ng)->count();
-
-                                        if ($judgement === JudgementResult::Ok) {
+                                        if ($judgement === 'ok') {
                                             $badgeColor = 'btn-success text-white hover:bg-success-focus';
-                                            $tooltip = "Final: OK ({$totalInspections}x inspected, {$ngCount}x NG)";
-                                        } elseif ($judgement === JudgementResult::Ng) {
+                                            $tooltip = "Final: OK ({$totalInspections}x inspected)";
+                                        } elseif ($judgement === 'ng') {
                                             $badgeColor = 'btn-error text-white hover:bg-error-focus';
                                             $tooltip = "Final: NG ({$totalInspections}x inspected)";
-                                        } else {
+                                        } elseif ($judgement === 'repair') {
                                             $badgeColor = 'btn-warning text-white hover:bg-warning-focus';
                                             $tooltip = "Final: REPAIR ({$totalInspections}x inspected)";
+                                        } else {
+                                            $badgeColor = 'btn-ghost text-base-content/40 border-base-300';
+                                            $tooltip = 'Incomplete data';
                                         }
                                     } else {
                                         $judgement = null;
@@ -477,7 +515,7 @@ class extends Component
                                             'pointer-events-none opacity-40' => $judgement === null,
                                         ])
                                     >
-                                        @if ($judgement === JudgementResult::Ng)
+                                        @if ($judgement === 'ng')
                                             <span class="absolute inset-0 rounded-full bg-error animate-ping opacity-40"></span>
                                         @endif
 
@@ -510,19 +548,21 @@ class extends Component
 
                                     if ($totalInspections > 0) {
                                         $latestRecord = $stageRecords->sortByDesc('checked_at')->first();
-                                        $judgement = $latestRecord->stampingDetail?->manual_judgement;
+                                        $judgement = $this->overallJudgementFromValues($latestRecord->fieldValues);
+                                        $ngCount = 0;
 
-                                        $ngCount = $stageRecords->filter(fn($r) => $r->stampingDetail?->manual_judgement === JudgementResult::Ng)->count();
-
-                                        if ($judgement === JudgementResult::Ok) {
+                                        if ($judgement === 'ok') {
                                             $badgeColor = 'btn-success text-white hover:bg-success-focus';
-                                            $tooltip = "Final: OK ({$totalInspections}x inspected, {$ngCount}x NG)";
-                                        } elseif ($judgement === JudgementResult::Ng) {
+                                            $tooltip = "Final: OK ({$totalInspections}x inspected)";
+                                        } elseif ($judgement === 'ng') {
                                             $badgeColor = 'btn-error text-white hover:bg-error-focus';
                                             $tooltip = "Final: NG ({$totalInspections}x inspected)";
-                                        } else {
+                                        } elseif ($judgement === 'repair') {
                                             $badgeColor = 'btn-warning text-white hover:bg-warning-focus';
                                             $tooltip = "Final: REPAIR ({$totalInspections}x inspected)";
+                                        } else {
+                                            $badgeColor = 'btn-ghost text-base-content/40 border-base-300';
+                                            $tooltip = 'Incomplete data';
                                         }
                                     } else {
                                         $judgement = null;
@@ -544,7 +584,7 @@ class extends Component
                                             'pointer-events-none opacity-40' => $judgement === null,
                                         ])
                                     >
-                                        @if ($judgement === JudgementResult::Ng)
+                                        @if ($judgement === 'ng')
                                             <span class="absolute inset-0 rounded-full bg-error animate-ping opacity-40"></span>
                                         @endif
 
@@ -568,7 +608,9 @@ class extends Component
 
     <x-drawer wire:model="drawer" title="Filters" right separator with-close-button class="lg:w-1/3">
         <x-input type="date" label="Production date" wire:model.live="productionDate" icon="o-calendar" />
-        <x-select label="Work station" wire:model.live="workStationId" :options="$workStationOptions" placeholder="All stations" class="mt-4" />
+        @if (count($workStationOptions) > 1)
+            <x-select label="Work station" wire:model.live="workStationId" :options="$workStationOptions" placeholder="All stations" class="mt-4" />
+        @endif
 
         <x-slot:actions>
             <x-button label="Reset" icon="o-x-mark" wire:click="clearFilters" spinner />
@@ -602,13 +644,13 @@ class extends Component
                 <div class="text-right shrink-0">
                     @php
                         $lastHistory = collect($stageHistory)->last();
-                        $finalStatus = $lastHistory['manual_judgement'] ?? null;
+                        $finalStatus = $lastHistory['judgement'] ?? null;
                     @endphp
                     <span class="text-[10px] md:text-xs block text-base-content/50">Final Result</span>
                     @if ($finalStatus)
                         <x-badge
-                            :value="$finalStatus->label()"
-                            class="{{ $finalStatus->badgeClass() }} badge-sm md:badge-md text-white font-extrabold mt-1"
+                            :value="strtoupper($finalStatus)"
+                            class="badge-sm md:badge-md text-white font-extrabold mt-1 {{ $finalStatus === 'ok' ? 'badge-success' : ($finalStatus === 'ng' ? 'badge-error' : 'badge-warning') }}"
                         />
                     @endif
                 </div>
@@ -625,21 +667,22 @@ class extends Component
 
                     <div class="space-y-3 md:space-y-4">
                         @foreach($stageHistory as $history)
+                            @php $judgement = $history['judgement']; @endphp
                             <div class="relative pl-8 md:pl-10">
                                 <span @class([
                                     'absolute left-0 top-3 md:top-4 flex h-6 w-6 md:h-8 md:w-8 items-center justify-center rounded-full text-white text-[9px] md:text-xs font-bold ring-2 md:ring-4 ring-base-100 shadow',
-                                    'bg-success' => $history['manual_judgement'] === JudgementResult::Ok,
-                                    'bg-error' => $history['manual_judgement'] === JudgementResult::Ng,
-                                    'bg-warning' => $history['manual_judgement'] === JudgementResult::Repair,
+                                    'bg-success' => $judgement === 'ok',
+                                    'bg-error' => $judgement === 'ng',
+                                    'bg-warning' => $judgement === 'repair',
                                 ])>
                                     #{{ $history['attempt'] }}
                                 </span>
 
                                 <div @class([
                                     'rounded-xl border p-2.5 md:p-4 shadow-sm transition-all duration-200',
-                                    'border-success/30 bg-success/5' => $history['manual_judgement'] === JudgementResult::Ok,
-                                    'border-error/30 bg-error/5' => $history['manual_judgement'] === JudgementResult::Ng,
-                                    'border-warning/30 bg-warning/5' => $history['manual_judgement'] === JudgementResult::Repair,
+                                    'border-success/30 bg-success/5' => $judgement === 'ok',
+                                    'border-error/30 bg-error/5' => $judgement === 'ng',
+                                    'border-warning/30 bg-warning/5' => $judgement === 'repair',
                                 ])>
                                     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-base-200 pb-2 md:pb-3 mb-2 md:mb-3">
                                         <div class="flex items-center gap-1.5 md:gap-2">
@@ -653,8 +696,8 @@ class extends Component
                                                 &middot; {{ ucfirst($history['shift']) }} shift
                                             </span>
                                             <x-badge
-                                                :value="$history['manual_judgement']?->label() ?? '—'"
-                                                class="{{ $history['manual_judgement']?->badgeClass() ?? 'badge-ghost' }} badge-xs md:badge-sm text-white font-bold"
+                                                :value="$judgement ? strtoupper($judgement) : '—'"
+                                                class="{{ $judgement === 'ok' ? 'badge-success' : ($judgement === 'ng' ? 'badge-error' : ($judgement === 'repair' ? 'badge-warning' : 'badge-ghost')) }} badge-xs md:badge-sm text-white font-bold"
                                             />
                                         </div>
                                     </div>
@@ -663,48 +706,57 @@ class extends Component
                                         <table class="table table-compact w-full text-[10px] md:text-xs">
                                             <thead>
                                                 <tr class="bg-base-200/50 text-base-content/85">
-                                                    <th class="py-1.5 md:py-2">Check Point</th>
+                                                    <th class="py-1.5 md:py-2">Field</th>
+                                                    <th class="text-center py-1.5 md:py-2">Value</th>
                                                     <th class="text-center py-1.5 md:py-2">Result</th>
-                                                    <th class="py-1.5 md:py-2 hidden sm:table-cell">Remarks</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                <tr class="hover:bg-base-200/30">
-                                                    <td class="font-semibold py-1.5 md:py-2">Visual Defect</td>
-                                                    <td class="text-center py-1.5 md:py-2">
-                                                        <x-badge
-                                                            :value="$history['is_defect'] ? 'Yes' : 'No'"
-                                                            class="{{ $history['is_defect'] ? 'badge-error' : 'badge-success' }} badge-xs text-white font-bold"
-                                                        />
-                                                    </td>
-                                                    <td class="py-1.5 md:py-2 text-base-content/60 hidden sm:table-cell">
-                                                        {{ $history['defect_remarks'] ?: '—' }}
-                                                    </td>
-                                                </tr>
-                                                <tr class="hover:bg-base-200/30">
-                                                    <td class="font-semibold py-1.5 md:py-2">Jig / Spec OK</td>
-                                                    <td class="text-center py-1.5 md:py-2">
-                                                        <x-badge
-                                                            :value="$history['jig_spec_ok'] ? 'Yes' : 'No'"
-                                                            class="{{ $history['jig_spec_ok'] ? 'badge-success' : 'badge-error' }} badge-xs text-white font-bold"
-                                                        />
-                                                    </td>
-                                                    <td class="py-1.5 md:py-2 text-base-content/60 hidden sm:table-cell">
-                                                        {{ $history['jig_remarks'] ?: '—' }}
-                                                    </td>
-                                                </tr>
-                                                <tr class="hover:bg-base-200/30">
-                                                    <td class="font-semibold py-1.5 md:py-2">Manual Judgement</td>
-                                                    <td class="text-center py-1.5 md:py-2">
-                                                        <x-badge
-                                                            :value="$history['manual_judgement']?->label() ?? '—'"
-                                                            class="{{ $history['manual_judgement']?->badgeClass() ?? 'badge-ghost' }} badge-xs text-white font-bold"
-                                                        />
-                                                    </td>
-                                                    <td class="py-1.5 md:py-2 text-base-content/60 hidden sm:table-cell">
-                                                        {{ $history['judgement_remarks'] ?: '—' }}
-                                                    </td>
-                                                </tr>
+                                                @forelse ($history['details'] as $detail)
+                                                    <tr class="hover:bg-base-200/30">
+                                                        <td class="py-1.5 md:py-2">
+                                                            <div class="font-semibold">{{ $detail['field_label'] }}</div>
+                                                            @if ($detail['source_label'])
+                                                                <div class="text-[9px] md:text-[10px] text-base-content/40 leading-tight">{{ $detail['source_label'] }}</div>
+                                                            @endif
+                                                        </td>
+                                                        <td class="text-center py-1.5 md:py-2 font-mono">
+                                                            @php
+                                                                $displayValue = match ($detail['field_type']) {
+                                                                    'boolean' => $detail['value'] === '1' ? 'Yes' : ($detail['value'] === '0' ? 'No' : '—'),
+                                                                    default => $detail['value'] ?? '—',
+                                                                };
+                                                            @endphp
+                                                            {{ $displayValue }}
+                                                        </td>
+                                                        <td class="text-center py-1.5 md:py-2">
+                                                            @php
+                                                                $result = $detail['auto_judgement'] ?? match (true) {
+                                                                    $detail['field_type'] === 'enum' && strtolower($detail['value'] ?? '') === 'ok' => 'ok',
+                                                                    $detail['field_type'] === 'enum' && strtolower($detail['value'] ?? '') === 'ng' => 'ng',
+                                                                    $detail['field_type'] === 'enum' && strtolower($detail['value'] ?? '') === 'repair' => 'repair',
+                                                                    $detail['field_type'] === 'boolean' && $detail['field_key'] === 'is_defect' && $detail['value'] === '0' => 'ok',
+                                                                    $detail['field_type'] === 'boolean' && $detail['field_key'] === 'is_defect' && $detail['value'] === '1' => 'ng',
+                                                                    $detail['field_type'] === 'boolean' && $detail['value'] === '1' => 'ok',
+                                                                    $detail['field_type'] === 'boolean' && $detail['value'] === '0' => 'ng',
+                                                                    default => null,
+                                                                };
+                                                            @endphp
+                                                            @if ($result)
+                                                                <x-badge
+                                                                    :value="strtoupper($result)"
+                                                                    class="{{ $result === 'ok' ? 'badge-success' : ($result === 'ng' ? 'badge-error' : 'badge-warning') }} badge-xs text-white font-bold"
+                                                                />
+                                                            @else
+                                                                <span class="text-base-content/30">—</span>
+                                                            @endif
+                                                        </td>
+                                                    </tr>
+                                                @empty
+                                                    <tr>
+                                                        <td colspan="3" class="text-center text-base-content/40 py-4">No details recorded.</td>
+                                                    </tr>
+                                                @endforelse
                                             </tbody>
                                         </table>
                                     </div>

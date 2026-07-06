@@ -50,7 +50,7 @@ class extends Component {
     public function parts(): LengthAwarePaginator
     {
         return Part::query()
-            ->with('stationTypes')
+            ->with('stationTypes.stationType')
             ->when($this->search, function (Builder $query) {
                 $query->where('part_number', 'like', "%{$this->search}%")
                     ->orWhere('part_name', 'like', "%{$this->search}%")
@@ -76,6 +76,7 @@ class extends Component {
             <x-input placeholder="Search part number, name, model, or variant..." wire:model.live.debounce="search" clearable icon="o-magnifying-glass" />
         </x-slot:middle>
         <x-slot:actions>
+            <x-button label="Tutorial" link="{{ route('parts.tutorial') }}" icon="o-book-open" class="btn-ghost" responsive />
             <x-button label="New part" link="{{ route('parts.create') }}" icon="o-plus" class="btn-primary" responsive />
         </x-slot:actions>
     </x-header>
@@ -105,17 +106,18 @@ class extends Component {
             @scope('cell_station_types', $part)
                 <div class="flex flex-wrap gap-1">
                     @forelse ($part->stationTypes as $st)
-                        @php
-                            $type = \App\Enums\WorkStationType::tryFrom($st->work_station_type);
-                            $badgeClass = match ($type) {
-                                \App\Enums\WorkStationType::Stamping => 'badge-info',
-                                \App\Enums\WorkStationType::StationSpot => 'badge-accent',
-                                \App\Enums\WorkStationType::PortableSpot => 'badge-warning',
-                                \App\Enums\WorkStationType::RobotSpot => 'badge-secondary',
-                                default => 'badge-ghost',
-                            };
-                        @endphp
-                        <span class="badge badge-sm {{ $badgeClass }}">{{ $type?->label() ?? $st->work_station_type }}</span>
+                        @if ($st->stationType)
+                            @php
+                                $badgeClass = match ($st->stationType->slug) {
+                                    'stamping' => 'badge-info',
+                                    'station-spot' => 'badge-accent',
+                                    'portable-spot' => 'badge-warning',
+                                    'robot-spot' => 'badge-secondary',
+                                    default => 'badge-ghost',
+                                };
+                            @endphp
+                            <span class="badge badge-sm {{ $badgeClass }}">{{ $st->stationType->name }}</span>
+                        @endif
                     @empty
                         <span class="text-xs text-base-content/40">—</span>
                     @endforelse

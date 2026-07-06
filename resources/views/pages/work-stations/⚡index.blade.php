@@ -26,7 +26,7 @@ class extends Component {
 
     public function with(): array
     {
-        $query = WorkStation::with('process')->orderBy('process_id')->orderBy('name');
+        $query = WorkStation::with(['process', 'stationType'])->orderBy('process_id')->orderBy('name');
 
         if ($this->search) {
             $query->where(function ($q) {
@@ -61,16 +61,18 @@ class extends Component {
                                 <div class="min-w-0 flex-1">
                                     <p class="truncate font-medium">{{ $station->name }}</p>
                                     <div class="mt-1 flex flex-wrap gap-1">
-                                        @php
-                                            $badgeClass = match ($station->type->value) {
-                                                'stamping' => 'badge-primary',
-                                                'station_spot' => 'badge-success',
-                                                'portable_spot' => 'badge-warning',
-                                                'robot_spot' => 'badge-accent',
-                                                default => 'badge-ghost',
-                                            };
-                                        @endphp
-                                        <x-badge :value="$station->type->label()" :class="$badgeClass.' badge-sm'" />
+                                        @if ($station->stationType)
+                                            @php
+                                                $badgeClass = match ($station->stationType->slug) {
+                                                    'stamping' => 'badge-primary',
+                                                    'station-spot' => 'badge-success',
+                                                    'portable-spot' => 'badge-warning',
+                                                    'robot-spot' => 'badge-accent',
+                                                    default => 'badge-ghost',
+                                                };
+                                            @endphp
+                                            <x-badge :value="$station->stationType->name" :class="$badgeClass.' badge-sm'" />
+                                        @endif
                                     </div>
                                 </div>
                                 <div class="flex shrink-0 gap-1">

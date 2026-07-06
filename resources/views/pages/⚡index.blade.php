@@ -1,12 +1,11 @@
 <?php
 
 use App\Enums\Shift;
-use App\Enums\UserRole;
-use App\Enums\WorkStationType;
-use App\Models\InspectionRecord;
+use App\Models\StationType;
+use App\Services\ChecklistTemplateService;
+use App\Services\InspectionStatsService;
 use App\Support\ShiftResolver;
 use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -38,143 +37,44 @@ class extends Component
 
     public function accessibleTypes(): array
     {
-        $user = auth()->user();
-
-        $all = [
-            WorkStationType::Stamping,
-            WorkStationType::StationSpot,
-            WorkStationType::PortableSpot,
-            WorkStationType::RobotSpot,
-        ];
-
-        if (in_array($user->role, [UserRole::Manager, UserRole::LeaderAdmin], true)) {
-            return $all;
-        }
-
-        return match ($user->process?->name) {
-            'Stamping' => [WorkStationType::Stamping],
-            'Welding' => [
-                WorkStationType::StationSpot,
-                WorkStationType::PortableSpot,
-                WorkStationType::RobotSpot,
-            ],
-            default => [],
-        };
-    }
-
-    public function typeRouteName(WorkStationType $type): string
-    {
-        return match ($type) {
-            WorkStationType::Stamping => 'stamping',
-            WorkStationType::StationSpot => 'station-spot',
-            WorkStationType::PortableSpot => 'portable-spot',
-            WorkStationType::RobotSpot => 'robot-spot',
-        };
+        return app(ChecklistTemplateService::class)->accessibleTypes();
     }
 
     public function typeStats(): Collection
     {
-        $targetDate = Carbon::parse($this->productionDate);
+        $statsService = app(InspectionStatsService::class);
 
-        return collect($this->accessibleTypes())->map(function (WorkStationType $type) use ($targetDate) {
-            $base = InspectionRecord::query()
-                ->whereDate('production_date', $targetDate)
-                ->whereHas('workStation', fn (Builder $q) => $q->where('type', $type));
-
-            $total = (clone $base)->count();
-
-            $ok = match ($type) {
-                WorkStationType::Stamping => (clone $base)->whereHas('stampingDetail', fn (Builder $q) => $q->where('manual_judgement', \App\Enums\JudgementResult::Ok))->count(),
-                WorkStationType::StationSpot => (clone $base)->whereHas('stationSpotDetails', fn (Builder $q) => $q->where('auto_judgement', \App\Enums\JudgementResult::Ok))->count(),
-                WorkStationType::PortableSpot => (clone $base)->whereHas('portableSpotDetail', fn (Builder $q) => $q->where('is_ok', true))->count(),
-                WorkStationType::RobotSpot => (clone $base)->whereHas('robotSpotDetail', fn (Builder $q) => $q->where('auto_judgement', \App\Enums\JudgementResult::Ok))->count(),
-            };
-
-            $ng = match ($type) {
-                WorkStationType::Stamping => (clone $base)->whereHas('stampingDetail', fn (Builder $q) => $q->where('manual_judgement', \App\Enums\JudgementResult::Ng))->count(),
-                WorkStationType::StationSpot => (clone $base)->whereHas('stationSpotDetails', fn (Builder $q) => $q->where('auto_judgement', \App\Enums\JudgementResult::Ng))->count(),
-                WorkStationType::PortableSpot => (clone $base)->whereHas('portableSpotDetail', fn (Builder $q) => $q->where('is_ok', false))->count(),
-                WorkStationType::RobotSpot => (clone $base)->whereHas('robotSpotDetail', fn (Builder $q) => $q->where('auto_judgement', \App\Enums\JudgementResult::Ng))->count(),
-            };
-
-            $routeName = $this->typeRouteName($type);
+        return collect($this->accessibleTypes())->map(function (StationType $type) use ($statsService) {
+            $stats = $statsService->dailyByType($type, $this->productionDate);
+            $slug = $type->slug;
 
             return [
                 'type' => $type,
-                'label' => $type->label(),
-                'icon' => $type->icon(),
-                'description' => $type->description(),
-                'total' => $total,
-                'ok' => $ok,
-                'ng' => $ng,
-                'pass_rate' => $total > 0 ? (int) round(($ok / $total) * 100) : 0,
-                'route_index' => "inspections.{$routeName}.index",
-                'route_create' => "inspections.{$routeName}.create",
+                'label' => $type->name,
+                'icon' => $type->icon,
+                'description' => $type->description,
+                'total' => $stats['total'],
+                'ok' => $stats['ok'],
+                'ng' => $stats['ng'],
+                'pass_rate' => $stats['pass_rate'],
+                'route_index' => route("inspections.{$slug}.index"),
+                'route_create' => route("inspections.{$slug}.create"),
             ];
         });
     }
 
     public function todaySummary(): array
     {
-        $targetDate = Carbon::parse($this->productionDate);
         $types = $this->accessibleTypes();
 
-        $base = InspectionRecord::query()
-            ->whereDate('production_date', $targetDate)
-            ->whereHas('workStation', fn (Builder $q) => $q->whereIn('type', array_map(fn (WorkStationType $t) => $t->value, $types)));
-
-        $total = (clone $base)->count();
-        $partsChecked = (clone $base)->distinct('part_id')->count('part_id');
-
-        $ok = 0;
-        $ng = 0;
-
-        foreach ($types as $type) {
-            $typeBase = InspectionRecord::query()
-                ->whereDate('production_date', $targetDate)
-                ->whereHas('workStation', fn (Builder $q) => $q->where('type', $type));
-
-            $ok += match ($type) {
-                WorkStationType::Stamping => (clone $typeBase)->whereHas('stampingDetail', fn (Builder $q) => $q->where('manual_judgement', \App\Enums\JudgementResult::Ok))->count(),
-                WorkStationType::StationSpot => (clone $typeBase)->whereHas('stationSpotDetails', fn (Builder $q) => $q->where('auto_judgement', \App\Enums\JudgementResult::Ok))->count(),
-                WorkStationType::PortableSpot => (clone $typeBase)->whereHas('portableSpotDetail', fn (Builder $q) => $q->where('is_ok', true))->count(),
-                WorkStationType::RobotSpot => (clone $typeBase)->whereHas('robotSpotDetail', fn (Builder $q) => $q->where('auto_judgement', \App\Enums\JudgementResult::Ok))->count(),
-            };
-
-            $ng += match ($type) {
-                WorkStationType::Stamping => (clone $typeBase)->whereHas('stampingDetail', fn (Builder $q) => $q->where('manual_judgement', \App\Enums\JudgementResult::Ng))->count(),
-                WorkStationType::StationSpot => (clone $typeBase)->whereHas('stationSpotDetails', fn (Builder $q) => $q->where('auto_judgement', \App\Enums\JudgementResult::Ng))->count(),
-                WorkStationType::PortableSpot => (clone $typeBase)->whereHas('portableSpotDetail', fn (Builder $q) => $q->where('is_ok', false))->count(),
-                WorkStationType::RobotSpot => (clone $typeBase)->whereHas('robotSpotDetail', fn (Builder $q) => $q->where('auto_judgement', \App\Enums\JudgementResult::Ng))->count(),
-            };
-        }
-
-        return [
-            'total' => $total,
-            'ok' => $ok,
-            'ng' => $ng,
-            'parts_checked' => $partsChecked,
-            'pass_rate' => $total > 0 ? (int) round(($ok / $total) * 100) : 0,
-        ];
+        return app(InspectionStatsService::class)->overallSummary($this->productionDate, $types);
     }
 
     public function recentNgItems(): Collection
     {
         $types = $this->accessibleTypes();
 
-        return InspectionRecord::query()
-            ->with(['part', 'workStation', 'checker'])
-            ->whereDate('production_date', Carbon::parse($this->productionDate))
-            ->whereHas('workStation', fn (Builder $q) => $q->whereIn('type', array_map(fn (WorkStationType $t) => $t->value, $types)))
-            ->where(function (Builder $q) {
-                $q->whereHas('stampingDetail', fn (Builder $dq) => $dq->where('manual_judgement', \App\Enums\JudgementResult::Ng))
-                    ->orWhereHas('stationSpotDetails', fn (Builder $dq) => $dq->where('auto_judgement', \App\Enums\JudgementResult::Ng))
-                    ->orWhereHas('portableSpotDetail', fn (Builder $dq) => $dq->where('is_ok', false))
-                    ->orWhereHas('robotSpotDetail', fn (Builder $dq) => $dq->where('auto_judgement', \App\Enums\JudgementResult::Ng));
-            })
-            ->latest('checked_at')
-            ->limit(10)
-            ->get();
+        return app(InspectionStatsService::class)->recentNgRecords($this->productionDate, $types);
     }
 
     public function with(): array
@@ -295,8 +195,8 @@ class extends Component
                         </div>
 
                         <div class="flex items-center gap-2 mt-3">
-                            <x-button label="New inspection" link="{{ route($stat['route_create']) }}" icon="o-plus" class="btn-primary btn-sm" />
-                            <x-button label="View board" link="{{ route($stat['route_index']) }}" icon="o-arrow-right" class="btn-ghost btn-sm" />
+                            <x-button label="New inspection" link="{{ $stat['route_create'] }}" icon="o-plus" class="btn-primary btn-sm" />
+                            <x-button label="View board" link="{{ $stat['route_index'] }}" icon="o-arrow-right" class="btn-ghost btn-sm" />
                         </div>
                     </div>
                 </div>

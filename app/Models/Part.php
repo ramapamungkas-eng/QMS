@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Part extends Model
 {
@@ -25,9 +24,9 @@ class Part extends Model
         return $this->hasMany(PartHardwareMapping::class);
     }
 
-    public function weldLengthStandard(): HasOne
+    public function weldLengthStandards(): HasMany
     {
-        return $this->hasOne(WeldLengthStandard::class);
+        return $this->hasMany(WeldLengthStandard::class);
     }
 
     public function inspectionRecords(): HasMany

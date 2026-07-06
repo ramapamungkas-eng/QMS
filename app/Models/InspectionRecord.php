@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class InspectionRecord extends Model
 {
@@ -62,23 +61,8 @@ class InspectionRecord extends Model
         return $this->belongsTo(User::class, 'checker_id');
     }
 
-    public function stampingDetail(): HasOne
+    public function fieldValues(): HasMany
     {
-        return $this->hasOne(StampingInspectionDetail::class);
-    }
-
-    public function stationSpotDetails(): HasMany
-    {
-        return $this->hasMany(StationSpotInspectionDetail::class);
-    }
-
-    public function portableSpotDetail(): HasOne
-    {
-        return $this->hasOne(PortableSpotInspectionDetail::class);
-    }
-
-    public function robotSpotDetail(): HasOne
-    {
-        return $this->hasOne(RobotSpotInspectionDetail::class);
+        return $this->hasMany(InspectionFieldValue::class);
     }
 }

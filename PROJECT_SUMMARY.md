@@ -30,28 +30,48 @@ app/
 │   ├── JudgementResult.php     # ok / ng / repair
 │   ├── MeasurementType.php     # torque / nugget
 │   ├── Shift.php               # day / night
-│   ├── UserRole.php            # manager / leader_admin / checker
-│   └── WorkStationType.php     # stamping / station_spot / portable_spot / robot_spot
+│   └── UserRole.php            # manager / leader_admin / checker
 ├── Http/
 │   ├── Controllers/
 │   │   └── Controller.php      # abstract base
 │   └── Middleware/
 │       ├── EnsureCanAccessProcess.php   # checkers scoped to their process
 │       └── EnsureUserIsAdmin.php         # manager / leader_admin only
-├── Models/                     # 14 Eloquent models
+├── Models/
+│   ├── ChecklistField.php
+│   ├── ChecklistSection.php
+│   ├── ChecklistTemplate.php
+│   ├── HardwareType.php
+│   ├── InspectionFieldValue.php         # has source() → PartHardwareMapping
+│   ├── InspectionRecord.php
+│   ├── MeasurementStandard.php
+│   ├── Part.php                         # weldLengthStandards() hasMany (per work station)
+│   ├── PartHardwareMapping.php
+│   ├── PartWorkStationType.php
+│   ├── Process.php
+│   ├── StationType.php
+│   ├── User.php
+│   ├── WeldLengthStandard.php           # belongsTo(WorkStation)
+│   └── WorkStation.php
 ├── Providers/
 │   └── AppServiceProvider.php
+├── Services/
+│   ├── AutoJudgementService.php       # evaluates field values against rules
+│   ├── ChecklistTemplateService.php    # resolves templates, types, routes
+│   └── InspectionStatsService.php     # computes per-type stats from unified data
 ├── Support/
 │   └── ShiftResolver.php       # resolves Day/Night + production_date
 └── View/Components/
     └── AppBrand.php            # sidebar logo/brand
 database/
 ├── factories/                  # 8 factories (mostly empty skeleton)
-├── migrations/                 # 23 migrations
+├── migrations/                 # 31 migrations
 └── seeders/
     ├── DatabaseSeeder.php
-    ├── MasterDataSeeder.php    # processes, stations, part_work_station_types
-    └── ManagerSeeder.php       # default manager user
+    ├── MasterDataSeeder.php    # processes, stations, parts, hardware, standards
+    ├── ManagerSeeder.php       # default manager user
+    ├── ChecklistTemplateSeeder.php  # per-type templates, sections, fields
+    └── MigrateInspectionDataSeeder.php  # data migration from old detail tables
 resources/views/
 ├── layouts/
 │   ├── app.blade.php           # main layout with sidebar navigation
@@ -60,7 +80,6 @@ resources/views/
 └── pages/                      # Livewire page components
     ├── ⚡login.blade.php
     ├── ⚡index.blade.php        # dashboard homepage
-    ├── ⚡index.blade.php        # (root — not a route)
     ├── users/
     │   ├── ⚡index.blade.php
     │   ├── ⚡create.blade.php
@@ -68,7 +87,7 @@ resources/views/
     ├── parts/
     │   ├── ⚡index.blade.php
     │   ├── ⚡create.blade.php
-    │   └── ⚡edit.blade.php
+    │   └── ⚡edit.blade.php         # weld length standards per work station
     ├── hardware/
     │   ├── ⚡index.blade.php
     │   ├── ⚡create.blade.php
@@ -77,19 +96,14 @@ resources/views/
     │   ├── ⚡index.blade.php
     │   ├── ⚡create.blade.php
     │   └── ⚡edit.blade.php
+    ├── checklists/
+    │   ├── ⚡index.blade.php        # admin checklist template list
+    │   ├── ⚡create.blade.php       # create template
+    │   └── ⚡edit.blade.php         # sections & fields builder
     └── inspections/
-        ├── stamping/
-        │   ├── ⚡index.blade.php
-        │   └── ⚡create.blade.php
-        ├── station-spot/
-        │   ├── ⚡index.blade.php
-        │   └── ⚡create.blade.php
-        ├── portable-spot/
-        │   ├── ⚡index.blade.php
-        │   └── ⚡create.blade.php
-        └── robot-spot/
-            ├── ⚡index.blade.php
-            └── ⚡create.blade.php
+        └── checklist/
+            ├── ⚡index.blade.php     # generic daily board for any type
+            └── ⚡create.blade.php    # generic create form for any type
 routes/
 └── web.php                    # all routes (no api.php)
 tests/
@@ -111,13 +125,23 @@ tests/
 | id | integer (PK) | |
 | name | varchar | `Stamping` or `Welding` |
 
+**`work_station_types`** (replaces hardcoded `WorkStationType` enum)
+| Column | Type | Notes |
+|---|---|---|
+| id | integer (PK) | |
+| process_id | integer (FK→processes) | |
+| slug | varchar (unique) | `stamping`, `station-spot`, `portable-spot`, `robot-spot` |
+| name | varchar | display name |
+| description | text | nullable |
+| icon | varchar | Mary UI icon name |
+
 **`work_stations`**
 | Column | Type | Notes |
 |---|---|---|
 | id | integer (PK) | |
 | process_id | integer (FK→processes) | |
-| name | varchar | e.g. B1, B2, Fengyu, Station Spot |
-| type | varchar (enum) | `stamping`, `station_spot`, `portable_spot`, `robot_spot` |
+| name | varchar | e.g. A1–A5, Fengyu (Stamping); SSW, PSW, RSW (Welding) |
+| station_type_id | integer (FK→work_station_types) | replaces old `type` string column |
 
 **`parts`**
 | Column | Type | Notes |
@@ -142,8 +166,8 @@ tests/
 |---|---|---|
 | id | integer (PK) | |
 | part_id | integer (FK→parts) | |
-| work_station_type | varchar | which station type this part routes through |
-| *(unique: part_id + work_station_type)* | | |
+| station_type_id | integer (FK→work_station_types) | replaces old `work_station_type` string |
+| *(unique: part_id + station_type_id)* | | |
 
 ### Configuration
 
@@ -167,10 +191,12 @@ tests/
 **`weld_length_standards`** (Robot Spot only)
 | Column | Type | Notes |
 |---|---|---|
-| part_id | integer (FK→parts, unique) | |
+| part_id | integer (FK→parts) | |
+| work_station_id | integer (FK→work_stations) | which Robot Spot station this applies to |
 | min_length | decimal(8,2) | |
 | max_length | decimal(8,2) | |
 | unit | varchar | default `mm` |
+| *(unique: part_id + work_station_id)* | | |
 
 ### Transactional
 
@@ -187,41 +213,50 @@ tests/
 | production_date | date | auto-calculated via ShiftResolver |
 | *(indexed: work_station_id + production_date + shift)* | | |
 
-**`stamping_inspection_details`** (1:1 with inspection_record)
+### Configurable Checklist System (replaces per-type detail tables)
+
+**`inspection_checklist_templates`** — one active template per workstation type
 | Column | Type | Notes |
 |---|---|---|
-| inspection_record_id | integer (FK, unique) | |
-| is_defect | boolean | visual defect present? |
-| defect_remarks | text | nullable |
-| jig_spec_ok | boolean | jig/spec conforms? |
-| jig_remarks | text | nullable |
-| manual_judgement | varchar (enum) | `ok`, `ng`, `repair` |
-| judgement_remarks | text | nullable |
+| id | integer (PK) | |
+| station_type_id | integer (FK→work_station_types, unique) | replaces old `work_station_type` string |
+| name | varchar | display name |
+| active | boolean | soft on/off toggle |
 
-**`station_spot_inspection_details`** (1:N with inspection_record)
+**`inspection_checklist_sections`** — groups fields within a template
+| Column | Type | Notes |
+|---|---|---|
+| template_id | integer (FK) | |
+| label | varchar | e.g. "Visual Check", "Hardware Measurements" |
+| order | tinyint | display order |
+| allow_multiple | boolean | for multi-row data (Station Spot hardware) |
+| source_type | varchar | nullable, e.g. `part_hardware_mappings` |
+
+**`inspection_checklist_fields`** — individual checkpoints
+| Column | Type | Notes |
+|---|---|---|
+| section_id | integer (FK) | |
+| field_key | varchar | machine name (e.g. `is_defect`, `weld_length`) |
+| label | varchar | display label |
+| field_type | varchar | `boolean`, `numeric`, `enum`, `text` |
+| options | json | nullable, enum values array |
+| required | boolean | |
+| order | tinyint | |
+| has_auto_judge | boolean | enables auto OK/NG |
+| auto_judge_source | varchar | `limits`, `measurement_standard`, `weld_length_standard` |
+| min_value / max_value | decimal | for limits-based auto-judge |
+| unit | varchar | display unit |
+
+**`inspection_field_values`** — unified response storage (replaces 4 detail tables)
 | Column | Type | Notes |
 |---|---|---|
 | inspection_record_id | integer (FK) | |
-| part_hardware_mapping_id | integer (FK→part_hardware_mappings) | |
-| measurement_value | decimal(10,2) | numeric reading |
-| auto_judgement | varchar (enum) | `ok` or `ng` (auto-calculated against standards) |
+| field_id | integer (FK→inspection_checklist_fields) | |
+| value | text | stored as text, cast at runtime |
+| auto_judgement | varchar | nullable `ok`/`ng` |
 | remarks | text | nullable |
-
-**`portable_spot_inspection_details`** (1:1 with inspection_record)
-| Column | Type | Notes |
-|---|---|---|
-| inspection_record_id | integer (FK, unique) | |
-| is_ok | boolean | pass/fail after tap test |
-| remarks | text | nullable (required if fail) |
-
-**`robot_spot_inspection_details`** (1:1 with inspection_record)
-| Column | Type | Notes |
-|---|---|---|
-| inspection_record_id | integer (FK, unique) | |
-| weld_length | decimal(8,2) | measured length |
-| auto_judgement | varchar (enum) | `ok` or `ng` (auto-calculated) |
-| jig_ok | boolean | nullable |
-| jig_remarks | text | nullable |
+| group_index | smallint | for multi-row sections (0 for single) |
+| source_id | bigint | nullable FK (e.g. part_hardware_mapping_id) |
 
 ### Users & Auth
 
@@ -244,33 +279,33 @@ tests/
 
 ---
 
-## Models (14)
+## Models (15)
 
 | Model | Table | Key Relations |
 |---|---|---|
 | `User` | users | belongsTo(Process) |
 | `Process` | processes | hasMany(WorkStation), belongsToMany(Part) |
-| `WorkStation` | work_stations | belongsTo(Process) |
-| `Part` | parts | hasMany(PartHardwareMapping), hasOne(WeldLengthStandard), hasMany(InspectionRecord), hasMany(PartWorkStationType) |
+| `WorkStation` | work_stations | belongsTo(Process), belongsTo(StationType) |
+| `Part` | parts | hasMany(PartHardwareMapping), hasMany(WeldLengthStandard), hasMany(InspectionRecord), hasMany(PartWorkStationType) |
 | `HardwareType` | hardware_types | hasMany(PartHardwareMapping) |
 | `PartHardwareMapping` | part_hardware_mappings | belongsTo(Part), belongsTo(HardwareType), hasOne(MeasurementStandard) |
 | `MeasurementStandard` | measurement_standards | belongsTo(PartHardwareMapping) |
-| `WeldLengthStandard` | weld_length_standards | belongsTo(Part) |
-| `PartWorkStationType` | part_work_station_types | belongsTo(Part) |
-| `InspectionRecord` | inspection_records | belongsTo(Part), belongsTo(WorkStation), belongsTo(checker), hasOne(StampingDetail), hasMany(StationSpotDetails), hasOne(PortableSpotDetail), hasOne(RobotSpotDetail) |
-| `StampingInspectionDetail` | stamping_inspection_details | belongsTo(InspectionRecord) |
-| `StationSpotInspectionDetail` | station_spot_inspection_details | belongsTo(InspectionRecord), belongsTo(PartHardwareMapping) |
-| `PortableSpotInspectionDetail` | portable_spot_inspection_details | belongsTo(InspectionRecord) |
-| `RobotSpotInspectionDetail` | robot_spot_inspection_details | belongsTo(InspectionRecord) |
+| `WeldLengthStandard` | weld_length_standards | belongsTo(Part), belongsTo(WorkStation) |
+| `PartWorkStationType` | part_work_station_types | belongsTo(Part), belongsTo(StationType) |
+| `StationType` | work_station_types | belongsTo(Process), hasMany(WorkStation), hasMany(ChecklistTemplate) |
+| `InspectionRecord` | inspection_records | belongsTo(Part), belongsTo(WorkStation), belongsTo(checker), hasMany(fieldValues) |
+| `ChecklistTemplate` | inspection_checklist_templates | belongsTo(StationType), hasMany(sections), scope active() |
+| `ChecklistSection` | inspection_checklist_sections | belongsTo(template), hasMany(fields) |
+| `ChecklistField` | inspection_checklist_fields | belongsTo(section) |
+| `InspectionFieldValue` | inspection_field_values | belongsTo(record), belongsTo(field), belongsTo(source → PartHardwareMapping) |
 
 ---
 
-## Enums (6)
+## Enums (5)
 
 | Enum | Values | Key Methods |
 |---|---|---|
 | `UserRole` | Manager, LeaderAdmin, Checker | `label()`, `description()` |
-| `WorkStationType` | Stamping, StationSpot, PortableSpot, RobotSpot | `label()`, `description()`, `icon()` |
 | `InspectionStage` | Start, Middle, End | `label()`, `description()` |
 | `JudgementResult` | Ok, Ng, Repair | `label()`, `badgeClass()` |
 | `MeasurementType` | Torque, Nugget | `label()`, `defaultUnit()` |
@@ -293,17 +328,13 @@ All routes in `routes/web.php` (no API routes).
 |---|---|---|---|
 | GET | `/` | (home) | pages::index |
 
-### Inspections (prefix: `/inspections`)
+### Inspections (prefix: `/inspections`) — routes generated dynamically from `work_station_types` table
 | Method | URI | Name | Middleware | Component |
 |---|---|---|---|---|
-| GET | `/inspections/stamping` | `inspections.stamping.index` | process:Stamping | pages::inspections.stamping.index |
-| GET | `/inspections/stamping/create` | `inspections.stamping.create` | process:Stamping | pages::inspections.stamping.create |
-| GET | `/inspections/station-spot` | `inspections.station-spot.index` | process:Welding | pages::inspections.station-spot.index |
-| GET | `/inspections/station-spot/create` | `inspections.station-spot.create` | process:Welding | pages::inspections.station-spot.create |
-| GET | `/inspections/portable-spot` | `inspections.portable-spot.index` | process:Welding | pages::inspections.portable-spot.index |
-| GET | `/inspections/portable-spot/create` | `inspections.portable-spot.create` | process:Welding | pages::inspections.portable-spot.create |
-| GET | `/inspections/robot-spot` | `inspections.robot-spot.index` | process:Welding | pages::inspections.robot-spot.index |
-| GET | `/inspections/robot-spot/create` | `inspections.robot-spot.create` | process:Welding | pages::inspections.robot-spot.create |
+| GET | `/inspections/{type}` | `inspections.{type}.index` | EnsureCanAccessProcess | pages::inspections.checklist.index |
+| GET | `/inspections/{type}/create` | `inspections.{type}.create` | EnsureCanAccessProcess | pages::inspections.checklist.create |
+
+All station types (stamping, station-spot, portable-spot, robot-spot) share the same generic Livewire page components. Routes are generated at boot time from `work_station_types` rows, and process name is resolved dynamically from `$stationType->process->name`.
 
 ### Admin (middleware: `EnsureUserIsAdmin`)
 | Method | URI | Name | Component |
@@ -319,7 +350,10 @@ All routes in `routes/web.php` (no API routes).
 | GET | `/parts/{part}/edit` | `parts.edit` | pages::parts.edit |
 | GET | `/work-stations` | `work-stations.index` | pages::work-stations.index |
 | GET | `/work-stations/create` | `work-stations.create` | pages::work-stations.create |
-| GET | `/work-stations/{work}/edit` | `work-stations.edit` | pages::work-stations.edit |
+| GET | `/work-stations/{workStation}/edit` | `work-stations.edit` | pages::work-stations.edit |
+| GET | `/checklists` | `checklists.index` | pages::checklists.index |
+| GET | `/checklists/create` | `checklists.create` | pages::checklists.create |
+| GET | `/checklists/{template}/edit` | `checklists.edit` | pages::checklists.edit |
 
 ---
 
@@ -349,19 +383,35 @@ All routes in `routes/web.php` (no API routes).
 
 1. **Checker** logs in with NIK + password.
 2. Dashboard shows their process's inspection types.
-3. Opens **New Inspection** form — selects part, work station, stage.
+3. Opens **New Inspection** form — selects part, stage, and work station (auto-selected when only one exists for the type).
 4. Fills type-specific checklist (see below).
 5. Submits — record is **final immediately** (no approval step).
-6. **Index board** shows daily production matrix: parts × stages (S/M/E) × shifts, with color-coded status badges and clickable history modal.
+6. **Index board** shows daily production matrix: parts × stages (S/M/E) × shifts, with colour-coded status badges and clickable history modal.
 
 ### Per-Type Checklist Logic
 
 | Type | Fields | Judgement |
 |---|---|---|
-| **Stamping** | Visual defect (Y/N), Jig/Spec OK (Y/N), Manual judgement (OK/NG/REPAIR) + remarks | Manual |
-| **Station Spot** | Measurement value per hardware mapping (torque or nugget) | Auto (against `measurement_standards`) |
-| **Portable Spot** | Pass/fail after hammer-and-chisel tap test + remarks | Manual |
-| **Robot Spot** | Weld length, jig OK (Y/N) + remarks | Auto (against `weld_length_standards`) |
+| **Stamping** | Visual defect? (Y/N), Jig/Spec OK? (Y/N), Manual judgement (OK/NG/REPAIR), Remarks | Manual enum (OK/NG/REPAIR). Stage-level overall: enum → boolean fallback. Detail: enum values show OK/NG/REPAIR badges; booleans show Yes/No. |
+| **Station Spot** | Measurement value per hardware mapping (torque or nugget) | Auto (against `measurement_standards`). Detail rows show hardware type label + standard range. |
+| **Portable Spot** | Tap test pass? (Y/N) | Manual boolean. Stage-level overall: boolean fallback (`1` → OK, `0` → NG). Detail: value shows Yes/No, result derived from boolean. |
+| **Robot Spot** | Jig OK? (Y/N). Weld length measurement — only shown when a standard exists for this part+work_station. | Weld length: auto (against `weld_length_standards`). Jig: manual boolean. When no standard exists, weld length section is hidden entirely. Stage-level overall: auto-judge → boolean fallback. |
+
+### Overall Judgement Precedence (`overallJudgementFromValues`)
+
+For stage badges, the overall result is determined in this order:
+1. **Auto-judged fields** — if any field has `has_auto_judge`, all must be OK for OK result; any NG → overall NG
+2. **Enum fields** — if no auto-judged fields, check `manual_judgement` (OK/NG/REPAIR)
+3. **Boolean fields** — if no enum either, all booleans `'1'` → OK, any `'0'` → NG
+
+### Detail Result Derivation
+
+The inspection history modal shows per-field results:
+- **Auto-judged**: shows the auto_judgement badge (OK/NG)
+- **Enum fields** (`manual_judgement`): derives OK/NG/REPAIR from value
+- **Boolean fields**: derives from value with field-key awareness — `is_defect` has inverted logic (`'0'` = OK, `'1'` = NG); all other booleans use standard logic (`'1'` = OK, `'0'` = NG)
+- **Numeric fields** without auto_judge: shows `—`
+- **Text fields**: shows `—`
 
 ---
 
@@ -378,22 +428,35 @@ All routes in `routes/web.php` (no API routes).
 ## Current Build Status
 
 ### Complete
-- 23 migrations covering all tables
-- 14 Eloquent models with casts & relationships
-- 6 enums with helper methods
+- 31 migrations covering all tables (including checklist tables, station type FK migration + cleanup, weld_length_standards work_station_id)
+- 15 Eloquent models with casts & relationships
+- 5 enums with helper methods
 - All routes with auth/process/admin middleware
-- **All 4 inspection types** — both create forms and daily index boards
+- **Hardcoded `WorkStationType` enum replaced with `work_station_types` DB table** — new station types can be added via UI
+- **Configurable checklist system** — templates, sections, fields define per-type forms dynamically
+- **Generic Livewire components** — both create form and daily index board driven by template definition
+- **3 Services** — ChecklistTemplateService, AutoJudgementService, InspectionStatsService
+- **Migration from per-type detail tables** — old tables dropped; data in `inspection_field_values`
 - Admin CRUD: Users, Parts, Hardware Types, Work Stations
-- Part edit page: hardware mapping CRUD + weld length standard management
+- **Checklist management UI** — admin can create/edit templates, sections, fields with modal builder
+- Part edit page: hardware mapping CRUD (Station Spot) + per-work-station weld length standard CRUD (Robot Spot)
 - Dashboard homepage with role-aware cards and today's summary
 - Login page (NIK + password) + logout
 - ShiftResolver utility
-- Master data seeder + manager seeder
+- Seeders: MasterDataSeeder, ManagerSeeder, ChecklistTemplateSeeder, MigrateInspectionDataSeeder
+- **Weld length standards are per-work-station** (`part_id + work_station_id` unique), editable on the parts edit page via modal
+- **Boolean field handling** — index page derives stage-level overall judgement and per-field detail results with correct semantics (inverted for `is_defect`, standard for others)
+- **Hardware info in index** — history modal shows hardware type name + part number beneath field label, and standard range on create form
+- **Conditional weld length** — Robot Spot inspection hides the Weld Length Measurement section when no standard exists for the selected part+work_station
+- **Reports page** — Livewire SFC with styled Excel export via GenerateReport job, Export model, progress tracking, download route
+- **Auto-select work station** — create/inspection pages hide the work station selector when only one option exists (Stamping shows A1-A5/Fengyu; welding types auto-select SSW/PSW/RSW)
+- **MasterDataSeeder** — stamping stations A1–A5 + Fengyu; welding stations SSW, PSW, RSW; dedup logic for idempotent reruns
+- **Route parameter fix** — work-stations edit route uses `{workStation}` to match Livewire mount parameter
 
 ### Not Yet Built
 - Meaningful tests (2 skeleton tests only; 6/8 factories empty)
 - Git repository
-- Reports/analytics (sidebar has placeholder link)
+- Notifications (email/WhatsApp for NG results)
 - Notifications (email/WhatsApp for NG results)
 - Event/listener infrastructure
 - Cache/queue job setup

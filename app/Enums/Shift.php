@@ -10,8 +10,8 @@ enum Shift: string
     public function label(): string
     {
         return match ($this) {
-            self::Day => 'Day Shift (07:30–20:00)',
-            self::Night => 'Night Shift (20:00–07:30)',
+            self::Day => 'Day Shift',
+            self::Night => 'Night Shift',
         };
     }
 }

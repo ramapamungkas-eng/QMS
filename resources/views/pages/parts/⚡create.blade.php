@@ -1,8 +1,7 @@
 <?php
 
-use App\Enums\WorkStationType;
 use App\Models\Part;
-use Illuminate\Validation\Rule;
+use App\Models\StationType;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -36,7 +35,7 @@ class extends Component {
             'variant' => ['nullable', 'string', 'max:100'],
             'photo' => ['nullable', 'image', 'max:2048'],
             'stationTypes' => ['required', 'array', 'min:1'],
-            'stationTypes.*' => [Rule::enum(WorkStationType::class)],
+            'stationTypes.*' => ['exists:work_station_types,id'],
         ];
     }
 
@@ -49,8 +48,8 @@ class extends Component {
         }
 
         $part = Part::create($data);
-        foreach ($this->stationTypes as $type) {
-            $part->stationTypes()->create(['work_station_type' => $type]);
+        foreach ($this->stationTypes as $typeId) {
+            $part->stationTypes()->create(['station_type_id' => $typeId]);
         }
 
         $this->success('Part created. Now set up its hardware mapping and standards.', position: 'toast-bottom', redirectTo: route('parts.edit', $part));
@@ -59,7 +58,7 @@ class extends Component {
     public function with(): array
     {
         return [
-            'stationTypeOptions' => WorkStationType::cases(),
+            'stationTypeOptions' => StationType::orderBy('name')->get(),
         ];
     }
 }; ?>
@@ -132,8 +131,8 @@ class extends Component {
                         <div class="flex flex-wrap gap-4">
                             @foreach ($stationTypeOptions as $st)
                                 <label class="flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-3 text-sm transition hover:border-base-content/30 has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:font-medium">
-                                    <input type="checkbox" wire:model="stationTypes" value="{{ $st->value }}" class="checkbox checkbox-primary checkbox-sm" />
-                                    {{ $st->label() }}
+                                    <input type="checkbox" wire:model="stationTypes" value="{{ $st->id }}" class="checkbox checkbox-primary checkbox-sm" />
+                                    {{ $st->name }}
                                 </label>
                             @endforeach
                         </div>

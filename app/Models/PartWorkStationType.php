@@ -11,11 +11,16 @@ class PartWorkStationType extends Model
 
     protected $fillable = [
         'part_id',
-        'work_station_type',
+        'station_type_id',
     ];
 
     public function part(): BelongsTo
     {
         return $this->belongsTo(Part::class);
+    }
+
+    public function stationType(): BelongsTo
+    {
+        return $this->belongsTo(StationType::class);
     }
 }

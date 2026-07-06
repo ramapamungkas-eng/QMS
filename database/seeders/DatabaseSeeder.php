@@ -11,6 +11,8 @@ class DatabaseSeeder extends Seeder
         $this->call([
             MasterDataSeeder::class,
             ManagerSeeder::class,
+            ChecklistTemplateSeeder::class,
+            MigrateInspectionDataSeeder::class,
         ]);
     }
 }

@@ -1,7 +1,7 @@
 <?php
 
-use App\Enums\WorkStationType;
 use App\Models\Process;
+use App\Models\StationType;
 use App\Models\WorkStation;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -19,7 +19,7 @@ class extends Component {
 
     public string $name = '';
 
-    public string $type = '';
+    public string $station_type_id = '';
 
     public function processOptions(): array
     {
@@ -31,14 +31,15 @@ class extends Component {
 
     public function typeOptions(): array
     {
-        return array_map(
-            fn (WorkStationType $type) => [
-                'id' => $type->value,
-                'name' => $type->label(),
-                'description' => $type->description(),
-            ],
-            WorkStationType::cases(),
-        );
+        return StationType::with('process')->orderBy('name')
+            ->get()
+            ->map(fn (StationType $st) => [
+                'id' => $st->id,
+                'name' => $st->name,
+                'description' => $st->description,
+                'process' => $st->process?->name,
+            ])
+            ->all();
     }
 
     public function rules(): array
@@ -46,13 +47,20 @@ class extends Component {
         return [
             'process_id' => ['required', 'exists:processes,id'],
             'name' => ['required', 'string', 'max:100', Rule::unique('work_stations', 'name')->where('process_id', $this->process_id)],
-            'type' => ['required', Rule::enum(WorkStationType::class)],
+            'station_type_id' => ['required', 'exists:work_station_types,id'],
         ];
     }
 
     public function save(): void
     {
-        WorkStation::create($this->validate());
+        $validated = $this->validate();
+        $validated['station_type_id'] = $this->station_type_id;
+
+        WorkStation::create([
+            'process_id' => $this->process_id,
+            'name' => $this->name,
+            'station_type_id' => $this->station_type_id,
+        ]);
 
         $this->success('Work station created.', position: 'toast-bottom', redirectTo: route('work-stations.index'));
     }
@@ -88,12 +96,12 @@ class extends Component {
                         @foreach ($typeOptions as $option)
                             <label
                                 class="flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition
-                                    {{ $type === $option['id'] ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-base-300 hover:border-base-content/30' }}"
+                                    {{ $station_type_id === $option['id'] ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-base-300 hover:border-base-content/30' }}"
                             >
-                                <input type="radio" wire:model="type" value="{{ $option['id'] }}" class="radio radio-primary radio-sm mt-0.5" />
+                                <input type="radio" wire:model="station_type_id" value="{{ $option['id'] }}" class="radio radio-primary radio-sm mt-0.5" />
                                 <div class="min-w-0">
                                     <span class="block font-medium">{{ $option['name'] }}</span>
-                                    <span class="mt-0.5 block text-sm text-base-content/60">{{ $option['description'] }}</span>
+                                    <span class="mt-0.5 block text-sm text-base-content/60">{{ $option['process'] }} — {{ $option['description'] }}</span>
                                 </div>
                             </label>
                         @endforeach

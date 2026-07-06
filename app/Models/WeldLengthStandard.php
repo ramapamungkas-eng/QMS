@@ -10,7 +10,7 @@ class WeldLengthStandard extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['part_id', 'min_length', 'max_length', 'unit'];
+    protected $fillable = ['part_id', 'work_station_id', 'min_length', 'max_length', 'unit'];
 
     protected function casts(): array
     {
@@ -23,5 +23,10 @@ class WeldLengthStandard extends Model
     public function part(): BelongsTo
     {
         return $this->belongsTo(Part::class);
+    }
+
+    public function workStation(): BelongsTo
+    {
+        return $this->belongsTo(WorkStation::class);
     }
 }

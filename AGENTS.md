@@ -22,14 +22,6 @@ This application is a Laravel application and its main Laravel ecosystems packag
 - pestphp/pest (PEST) - v4
 - phpunit/phpunit (PHPUNIT) - v12
 - tailwindcss (TAILWINDCSS) - v4
-- robsontenorio/mary (MARYUI) - latest (Livewire + daisyUI + Tailwind components)
-
-## Project Notes
-
-- Fresh Laravel 13 install, no starter kit (no Breeze/Jetstream/Fluxstart). Mary UI is the primary component library.
-- Mary UI components are used **without a prefix** (e.g. `<x-input>`, `<x-button>`, `<x-table>`), since there's no starter kit collision to worry about. Do not use the `x-mary-*` prefixed variants unless the config is changed.
-- Styling relies entirely on daisyUI + Tailwind utility classes; Mary UI ships no custom CSS. Prefer overriding via Tailwind/daisyUI classes rather than writing custom CSS.
-- Check `resources/views/components` and existing Livewire components for conventions before creating new Mary UI-based components.
 
 ## Skills Activation
 
@@ -49,10 +41,6 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 - Stick to existing directory structure; don't create new base folders without approval.
 - Do not change the application's dependencies without approval.
-
-## Project Knowledge
-
-- **PROJECT_SUMMARY.md** at the project root contains the full schema, route list, component inventory, and workflow documentation. Read it first when starting a new session to quickly understand what exists.
 
 ## Frontend Bundling
 
@@ -159,25 +147,6 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - You can use Alpine.js for client-side interactions instead of JavaScript frameworks.
 - Keep state server-side so the UI reflects it. Validate and authorize in actions as you would in HTTP requests.
 
-=== livewire/pages rules ===
-
-# Livewire 4 Page Components
-
-- Full-page components live under the `pages::` namespace, not the default `resources/views/components` directory.
-- Correct command to scaffold a page: `php artisan make:livewire pages::login` (NOT `livewire:make`). Use dot notation to nest into folders: `php artisan make:livewire pages::users.index` creates `resources/views/pages/users/⚡index.blade.php`.
-- Route to a page component with `Route::livewire('/login', 'pages::login');` — no controller needed. Route parameters bind into the component's `mount()` the same way as class-based components.
-- Reusable, non-page components (buttons, cards, form partials) stay in the default `resources/views/components` namespace and are still created with `php artisan make:livewire ComponentName` (no `pages::` prefix).
-- Add `--mfc` to scaffold a multi-file component (separate `.php`, `.blade.php`, `.js`, `.css`) when a component grows too large for the single-file format.
-
-=== mary-ui/core rules ===
-
-# Mary UI
-
-- Mary UI (`robsontenorio/mary`) provides pre-built Livewire components on top of daisyUI/Tailwind. Prefer these components over building raw Blade/Tailwind markup from scratch (e.g. use `<x-input>`, `<x-select>`, `<x-table>`, `<x-modal>`, `<x-drawer>` instead of hand-rolled equivalents).
-- No component prefix is configured, so components are used as `<x-button>`, `<x-card>`, etc. — not `<x-mary-button>`.
-- Check the installed Mary UI docs/component list before building a custom form/table/dialog element; there is very likely an existing component for it.
-- Form components bind via `wire:model` like any Livewire input; validate in the component class as usual.
-
 === pint/core rules ===
 
 # Laravel Pint Code Formatter
@@ -205,7 +174,7 @@ A Quality Management System where every physical process (Stamping and the three
 ## Master Data
 
 - `processes` — Stamping, Welding
-- `work_stations` — physical line/station, belongs to a process. `type` column drives which checklist form + judgement logic applies: `stamping`, `station_spot`, `portable_spot`, `robot_spot`. Examples: B1–B4 & Fengyu (Stamping), Station Spot / Portable Spot / Robot Spot (Welding — each is a single work point, not multiple physical lines).
+- `work_stations` — physical line/station, belongs to a process. `type` column drives which checklist form + judgement logic applies: `stamping`, `station_spot`, `portable_spot`, `robot_spot`. Examples: A1–A5 & Fengyu (Stamping), SSW / PSW / RSW (Welding — each is a single work point, not multiple physical lines).
 - `parts` — single part: `part_number` (unique), `part_name`, `model`, `variant`. One part flows through multiple work stations over its lifecycle (Stamping → SSW → PSW → RSW); it is a single row, not duplicated per process.
 - `hardware_types` — nut/bolt used in Station Spot welding: `part_number` (unique), `part_name`.
 
@@ -213,17 +182,34 @@ A Quality Management System where every physical process (Stamping and the three
 
 - `part_hardware_mappings` — **Station Spot only**. Links a part to the hardware types installed on it: `part_id`, `hardware_type_id`, `measurement_type` (`torque` | `nugget`), `usage_qty` (how many of that hardware are physically installed — independent from how many measurements are taken; even if `usage_qty = 2`, the checker still enters one representative measurement value).
 - `measurement_standards` — min/max spec per `part_hardware_mapping_id` (not per hardware type alone, since standards can differ per part even with the same hardware).
-- `weld_length_standards` — **Robot Spot only**. Min/max weld length per `part_id`, independent of hardware.
+- `weld_length_standards` — **Robot Spot only**. Min/max weld length per `(part_id, work_station_id)` — standards can differ per work station. Unique constraint on `(part_id, work_station_id)`.
 
 ## Transactional
 
 - `inspection_records` — header: `part_id`, `work_station_id`, `stage` (Start/Middle/End — same checklist applies at every stage for a given work station), `checker_id`, `checked_at` (raw submit timestamp), `shift` (`day`/`night`), `production_date` (see Shift Logic below). No approval workflow — a record is final the moment it's submitted.
-- `inspection_details` — shape depends on `work_station.type`:
-  - **Stamping**: `is_defect` (Y/N), `jig_spec_ok` (Y/N), `manual_judgement` (OK/NG/REPAIR); if any answer is N/NG, a remark is required for that point.
-  - **Station Spot**: one row per installed hardware — input numeric measurement value, auto-judged OK/NG against `measurement_standards`.
-  - **Portable Spot**: visual check only (pass/fail after hammer-and-chisel tap test) + remarks (required if fail).
-  - **Robot Spot**: visual check + numeric weld length input, auto-judged against `weld_length_standards`.
+- `inspection_field_values` — shape depends on `work_station.type` via the checklist template:
+  - **Stamping**: `is_defect` (boolean), `jig_spec_ok` (boolean), `manual_judgement` (enum OK/NG/REPAIR), `judgement_remarks` (text). No auto-judge. Remarks only on Final Judgement section.
+  - **Station Spot**: one `measurement_value` row per hardware mapping, auto-judged OK/NG against `measurement_standards`. Input label includes hardware type name + part number. Standard range shown beneath.
+  - **Portable Spot**: single `is_ok` (boolean) tap test pass/fail. No remarks in template.
+  - **Robot Spot**: `jig_ok` (boolean) visual check. `weld_length` (numeric, auto-judged against `weld_length_standards`) — **hidden** when no standard exists for the selected part+work_station; only jig check shows.
 - Traceability is at the **part_number + production_date** level, not physical unit/serial-level genealogy — no lot/serial tracking table needed.
+
+## Index Board Judgement Logic
+
+### Stage-level overall (`overallJudgementFromValues`)
+Precedence: **auto-judged fields** → **enum fields** → **boolean fallback**
+
+1. If any field has `has_auto_judge = true`: all OK → OK badge; any NG → NG badge
+2. Else if any field is `enum` (manual_judgement): OK/NG/REPAIR badge from value
+3. Else if any field is `boolean`: all `'1'` → OK badge; any `'0'` → NG badge
+
+This correctly handles all 4 station types without conflating Stamping's booleans (is_defect is negative semantics but the enum check runs first).
+
+### Detail result column (history modal)
+- **Auto-judged fields**: displays auto_judgement badge (OK/NG)
+- **Enum fields**: derives OK/NG/REPAIR from value (strtolower compare)
+- **Boolean fields**: derives with field-key awareness — `is_defect` uses inverted logic (`'0'` = OK, `'1'` = NG); all other booleans use standard logic (`'1'` = OK, `'0'` = NG)
+- Display value for booleans: `'1'` → "Yes", `'0'` → "No"
 
 ## Shift Logic (production_date normalization)
 
