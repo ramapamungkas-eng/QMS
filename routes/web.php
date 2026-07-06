@@ -1,10 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureUserIsAdmin;
-use App\Models\StationType;
-use App\Services\ChecklistTemplateService;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 // Users will be redirected to this route if not logged in
@@ -43,25 +40,7 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::prefix('inspections')->group(function () {
-        if (Schema::hasTable('work_station_types')) {
-            $typeSlugs = app(ChecklistTemplateService::class)->allSlugs();
-
-            foreach ($typeSlugs as $slug) {
-                $stationType = StationType::where('slug', $slug)->first();
-
-                if ($stationType === null) {
-                    continue;
-                }
-
-                Route::livewire("/{$slug}", 'pages::inspections.checklist.index', ['type' => $slug])
-                    ->middleware("process:{$stationType->process->name}")
-                    ->name("inspections.{$slug}.index");
-
-                Route::livewire("/{$slug}/create", 'pages::inspections.checklist.create', ['type' => $slug])
-                    ->middleware("process:{$stationType->process->name}")
-                    ->name("inspections.{$slug}.create");
-            }
-        }
+        app('inspections.routes')->register();
     });
 
     Route::middleware(EnsureUserIsAdmin::class)->group(function () {
