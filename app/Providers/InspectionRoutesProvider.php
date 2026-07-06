@@ -31,11 +31,11 @@ class InspectionRoutesProvider extends ServiceProvider
                     continue;
                 }
 
-                Route::livewire("/{$slug}", 'pages::inspections.checklist.index', ['type' => $slug])
+                Route::livewire("/{$slug}", 'pages::inspections.checklist.index')
                     ->middleware("process:{$stationType->process->name}")
                     ->name("inspections.{$slug}.index");
 
-                Route::livewire("/{$slug}/create", 'pages::inspections.checklist.create', ['type' => $slug])
+                Route::livewire("/{$slug}/create", 'pages::inspections.checklist.create')
                     ->middleware("process:{$stationType->process->name}")
                     ->name("inspections.{$slug}.create");
             }

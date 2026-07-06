@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\ExportFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,6 +10,7 @@ use Illuminate\Support\Facades\Storage;
 
 class Export extends Model
 {
+    /** @use HasFactory<ExportFactory> */
     use HasFactory;
 
     protected $fillable = [
@@ -30,6 +32,7 @@ class Export extends Model
         ];
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -48,7 +51,7 @@ class Export extends Model
             return '—';
         }
 
-        $bytes = filesize($fullPath);
+        $bytes = filesize($fullPath) ?: 0;
         $units = ['B', 'KB', 'MB', 'GB'];
 
         for ($i = 0; $bytes >= 1024 && $i < count($units) - 1; $i++) {

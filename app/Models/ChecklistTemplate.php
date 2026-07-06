@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -23,22 +24,32 @@ class ChecklistTemplate extends Model
         ];
     }
 
+    /** @return BelongsTo<StationType, $this> */
     public function stationType(): BelongsTo
     {
         return $this->belongsTo(StationType::class);
     }
 
+    /** @return HasMany<ChecklistSection, $this> */
     public function sections(): HasMany
     {
         return $this->hasMany(ChecklistSection::class, 'template_id')->orderBy('order');
     }
 
-    public function scopeForType($query, StationType $stationType)
+    /**
+     * @param  Builder<ChecklistTemplate>  $query
+     * @return Builder<ChecklistTemplate>
+     */
+    public function scopeForType(Builder $query, StationType $stationType): Builder
     {
         return $query->where('station_type_id', $stationType->id);
     }
 
-    public function scopeActive($query)
+    /**
+     * @param  Builder<ChecklistTemplate>  $query
+     * @return Builder<ChecklistTemplate>
+     */
+    public function scopeActive(Builder $query): Builder
     {
         return $query->where('active', true);
     }

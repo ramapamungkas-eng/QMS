@@ -20,11 +20,13 @@ class ReportReady extends Notification
         $this->fileName = $fileName;
     }
 
+    /** @return list<string> */
     public function via(object $notifiable): array
     {
         return ['database', 'broadcast'];
     }
 
+    /** @return array<string, mixed> */
     public function toDatabase(object $notifiable): array
     {
         return [

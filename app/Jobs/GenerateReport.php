@@ -28,6 +28,9 @@ class GenerateReport implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /**
+     * @param  array<string, mixed>  $filters
+     */
     public function __construct(
         protected int $exportId,
         protected array $filters,
@@ -102,6 +105,7 @@ class GenerateReport implements ShouldQueue
         $this->user->notify(new ReportReady($this->path, $this->fileName));
     }
 
+    /** @return Builder<InspectionRecord> */
     private function buildQuery(): Builder
     {
         $query = InspectionRecord::query()
@@ -154,7 +158,7 @@ class GenerateReport implements ShouldQueue
                 ->orWhere('part_name', 'like', "%{$search}%"));
         }
 
-        if ($this->user && $this->user->role === UserRole::Checker) {
+        if ($this->user->role === UserRole::Checker) {
             $query->whereHas('workStation', fn (Builder $q) => $q->where('process_id', $this->user->process_id));
         }
 

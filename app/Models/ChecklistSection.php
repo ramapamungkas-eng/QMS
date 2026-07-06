@@ -25,11 +25,13 @@ class ChecklistSection extends Model
         ];
     }
 
+    /** @return BelongsTo<ChecklistTemplate, $this> */
     public function template(): BelongsTo
     {
         return $this->belongsTo(ChecklistTemplate::class, 'template_id');
     }
 
+    /** @return HasMany<ChecklistField, $this> */
     public function fields(): HasMany
     {
         return $this->hasMany(ChecklistField::class, 'section_id')->orderBy('order');

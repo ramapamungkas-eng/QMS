@@ -3,13 +3,19 @@
 namespace App\Models;
 
 use App\Enums\UserRole;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
+/**
+ * @property UserRole $role
+ * @property-read Process|null $process
+ */
 class User extends Authenticatable
 {
+    /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
     protected $fillable = [
@@ -38,6 +44,7 @@ class User extends Authenticatable
         ];
     }
 
+    /** @return BelongsTo<Process, $this> */
     public function process(): BelongsTo
     {
         return $this->belongsTo(Process::class);
