@@ -32,11 +32,11 @@ class InspectionRoutesProvider extends ServiceProvider
                 }
 
                 Route::livewire("/{$slug}", 'pages::inspections.checklist.index')
-                    ->middleware("process:{$stationType->process->name}")
+                    ->middleware(['auth', "process:{$stationType->process->name}"])
                     ->name("inspections.{$slug}.index");
 
                 Route::livewire("/{$slug}/create", 'pages::inspections.checklist.create')
-                    ->middleware("process:{$stationType->process->name}")
+                    ->middleware(['auth', "process:{$stationType->process->name}"])
                     ->name("inspections.{$slug}.create");
             }
         } catch (\Exception $e) {
