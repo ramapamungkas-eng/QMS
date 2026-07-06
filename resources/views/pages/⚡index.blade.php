@@ -113,20 +113,24 @@ class extends Component
 
     {{-- Summary stats row --}}
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        <div class="rounded-2xl border border-base-300 bg-base-100 p-3 md:p-4">
+        <div class="rounded-2xl border border-base-300 bg-base-100 p-3 md:p-4 kpi-accent kpi-accent-total">
             <div class="flex items-center gap-2 md:gap-3">
-                <div class="grid h-9 w-9 md:h-11 md:w-11 shrink-0 place-items-center rounded-xl bg-base-content/5 text-base-content">
+                <div class="grid h-9 w-9 md:h-11 md:w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
                     <x-icon name="o-clipboard-document-check" class="w-4 h-4 md:w-5 md:h-5" />
                 </div>
                 <div class="min-w-0 flex-1">
                     <div class="text-[10px] md:text-xs text-base-content/50 uppercase font-bold tracking-wider">Total Today</div>
                     <div class="text-xl md:text-2xl font-extrabold mt-0.5">{{ $summary['total'] }}</div>
-                    <div class="text-[9px] md:text-[10px] text-base-content/40 mt-1">{{ $summary['parts_checked'] }} parts</div>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="text-[10px] text-base-content/40 flex items-center gap-1">
+                            <x-icon name="o-cube" class="w-3 h-3" /> {{ $summary['parts_checked'] }} parts
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="rounded-2xl border border-base-300 bg-base-100 p-3 md:p-4">
+        <div class="rounded-2xl border border-base-300 bg-base-100 p-3 md:p-4 kpi-accent kpi-accent-ok">
             <div class="flex items-center gap-2 md:gap-3">
                 <div class="grid h-9 w-9 md:h-11 md:w-11 shrink-0 place-items-center rounded-xl bg-success/10 text-success">
                     <x-icon name="o-check-circle" class="w-4 h-4 md:w-5 md:h-5" />
@@ -138,7 +142,7 @@ class extends Component
             </div>
         </div>
 
-        <div class="rounded-2xl border p-3 md:p-4 {{ $summary['ng'] > 0 ? 'border-error/40 bg-error/5' : 'border-base-300 bg-base-100' }}">
+        <div class="rounded-2xl border p-3 md:p-4 kpi-accent kpi-accent-ng {{ $summary['ng'] > 0 ? 'border-error/40 bg-error/5' : 'border-base-300 bg-base-100' }}">
             <div class="flex items-center gap-2 md:gap-3">
                 <div class="grid h-9 w-9 md:h-11 md:w-11 shrink-0 place-items-center rounded-xl bg-error/10 text-error">
                     <x-icon name="o-x-circle" class="w-4 h-4 md:w-5 md:h-5" />
@@ -153,7 +157,7 @@ class extends Component
             </div>
         </div>
 
-        <div class="rounded-2xl border border-base-300 bg-base-100 p-3 md:p-4">
+        <div class="rounded-2xl border border-base-300 bg-base-100 p-3 md:p-4 kpi-accent kpi-accent-rate">
             <div class="flex items-center gap-2 md:gap-3">
                 <div class="radial-progress {{ $summary['pass_rate'] >= 80 ? 'text-success' : ($summary['pass_rate'] >= 50 ? 'text-warning' : 'text-error') }} shrink-0"
                      style="--value:{{ $summary['pass_rate'] }}; --size:2.75rem; --thickness: 4px;"

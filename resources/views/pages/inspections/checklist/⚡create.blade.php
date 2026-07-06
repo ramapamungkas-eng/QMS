@@ -478,40 +478,45 @@ class extends Component {
                         </div>
                     </x-card>
                 @else
-                    {{-- Step progress indicator --}}
+                    {{-- Wizard-style progress indicator --}}
                     @php
                         $step1 = $workStationId && $stage;
                         $step2 = $step1 && $selectedPart;
+                        $steps = [
+                            ['label' => count($workStationOptions) > 1 ? 'Station & Stage' : 'Stage', 'done' => $step1],
+                            ['label' => 'Select Part', 'done' => $step2],
+                            ['label' => 'Inspect & Submit', 'done' => false, 'active' => $step2],
+                        ];
                     @endphp
-                    <div class="flex items-center gap-1 rounded-xl border border-base-300 bg-base-100/50 px-3 py-2 text-xs font-medium max-sm:gap-0">
-                        <div class="flex items-center gap-1.5">
-                            <span @class(['flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
-                                'bg-success text-success-content' => $step1,
-                                'bg-base-300 text-base-content/50' => ! $step1,
-                            ])>{{ $step1 ? '✓' : '1' }}</span>
-                            <span @class(['transition-colors', 'text-base-content/60' => ! $step1, 'text-base-content' => $step1])>
-                                @if (count($workStationOptions) > 1) Station &amp; Stage @else Stage @endif
-                            </span>
-                        </div>
-                        <x-icon name="o-chevron-right" class="mx-1 h-3 w-3 text-base-content/30 max-sm:mx-0" />
-                        <div class="flex items-center gap-1.5">
-                            <span @class(['flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
-                                'bg-success text-success-content' => $step2,
-                                'bg-base-300 text-base-content/50' => ! $step2,
-                            ])>{{ $step2 ? '✓' : '2' }}</span>
-                            <span @class(['transition-colors', 'text-base-content/60' => ! $step2, 'text-base-content' => $step2])>Select Part</span>
-                        </div>
-                        <x-icon name="o-chevron-right" class="mx-1 h-3 w-3 text-base-content/30 max-sm:mx-0" />
-                        <div class="flex items-center gap-1.5">
-                            <span @class(['flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
-                                'bg-primary text-primary-content' => $step2,
-                                'bg-base-300 text-base-content/50' => ! $step2,
-                            ])>{{ $step2 ? '3' : '3' }}</span>
-                            <span @class(['transition-colors',
-                                'text-base-content/60' => ! $step2,
-                                'text-primary font-semibold' => $step2,
-                            ])>Inspect &amp; Submit</span>
-                        </div>
+                    <div class="flex items-center rounded-xl border border-base-300 bg-base-100/50 px-4 py-3 text-xs font-medium">
+                        @foreach ($steps as $i => $s)
+                            <div class="flex items-center gap-2">
+                                <span @class([
+                                    'flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold shrink-0',
+                                    'bg-success text-success-content' => $s['done'],
+                                    'bg-primary text-primary-content' => !$s['done'] && ($s['active'] ?? false),
+                                    'bg-base-300 text-base-content/50' => !$s['done'] && !($s['active'] ?? false),
+                                ])>
+                                    @if ($s['done'])
+                                        <x-icon name="o-check" class="w-3 h-3" />
+                                    @else
+                                        {{ $i + 1 }}
+                                    @endif
+                                </span>
+                                <span @class([
+                                    'transition-colors',
+                                    'text-base-content/60' => !$s['done'] && !($s['active'] ?? false),
+                                    'text-base-content font-semibold' => $s['done'] || ($s['active'] ?? false),
+                                ])>{{ $s['label'] }}</span>
+                            </div>
+                            @if ($i < count($steps) - 1)
+                                <div @class([
+                                    'mx-2 h-px flex-1 min-w-4',
+                                    'bg-success' => $s['done'],
+                                    'bg-base-300' => !$s['done'],
+                                ])></div>
+                            @endif
+                        @endforeach
                     </div>
 
                     <div class="grid gap-6">

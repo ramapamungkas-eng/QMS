@@ -23,22 +23,20 @@ class AppBrand extends Component
     {
         return <<<'HTML'
                 <a href="/" wire:navigate>
-                    <!-- Hidden when collapsed -->
                     <div {{ $attributes->class(["hidden-when-collapsed"]) }}>
-                        <div class="flex flex-col items-start gap-0 w-fit">
-                            <div class="flex items-center gap-2">
-                                <x-icon name="o-cube" class="w-6 -mb-1.5 text-purple-500" />
-                                <span class="font-bold text-3xl me-3 bg-gradient-to-r from-purple-500 to-pink-300 bg-clip-text text-transparent ">
-                                    {{ config('app.name') }}
-                                </span>
+                        <div class="flex flex-col items-start gap-0 w-fit px-2">
+                            <div class="flex items-center gap-2.5">
+                                <x-icon name="o-cog" class="w-5 h-5" />
+                                <div>
+                                    <span class="block text-lg font-bold tracking-tight leading-none">基準 QJUN</span>
+                                    <span class="block text-[10px] font-medium tracking-wider uppercase leading-tight mt-0.5 opacity-50">Quality Management System</span>
+                                </div>
                             </div>
-                            <span class="text-xs text-base-content/50 ml-8 -mt-1">Management System</span>
                         </div>
                     </div>
 
-                    <!-- Display when collapsed -->
-                    <div class="display-when-collapsed hidden mx-5 mt-5 mb-1 h-[28px]">
-                        <x-icon name="s-cube" class="w-6 -mb-1.5 text-purple-500" />
+                    <div class="display-when-collapsed hidden mx-5 mt-5 mb-1">
+                        <x-icon name="o-cog" class="w-5 h-5" />
                     </div>
                 </a>
             HTML;

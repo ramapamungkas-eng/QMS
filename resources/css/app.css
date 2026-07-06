@@ -12,44 +12,35 @@
     prefersdark: false;
     color-scheme: light;
 
-    /* Steel / workshop neutrals — cooler and slightly darker than pure white,
-       so long shifts on a shop-floor screen are easier on the eyes. */
     --color-base-100: #f5f6f8;
     --color-base-200: #e7e9ed;
     --color-base-300: #d3d7de;
     --color-base-content: #1f2430;
 
-    /* Deep machine-paint blue as the primary action / nav color. */
-    --color-primary: #26425f;
+    --color-primary: #1e3a5f;
     --color-primary-content: #f5f6f8;
 
-    /* Muted steel gray-blue for secondary surfaces. */
-    --color-secondary: #5b6b7c;
+    --color-secondary: #4a5a6b;
     --color-secondary-content: #f5f6f8;
 
-    /* Safety-tape yellow — reserved for the signature stamp motif and active states. */
     --color-accent: #f2b705;
     --color-accent-content: #1f2430;
 
-    --color-neutral: #333844;
+    --color-neutral: #2a2f3a;
     --color-neutral-content: #f5f6f8;
 
     --color-info: #2f7da6;
     --color-info-content: #f5f6f8;
 
-    /* OK stamp green */
     --color-success: #2e7d32;
     --color-success-content: #f5f6f8;
 
-    /* REPAIR stamp amber */
     --color-warning: #e6a400;
     --color-warning-content: #1f2430;
 
-    /* NG stamp red */
     --color-error: #c62828;
     --color-error-content: #f5f6f8;
 
-    /* Slightly tighter radii than daisyUI defaults — reads as engineered, not soft. */
     --radius-selector: 0.375rem;
     --radius-field: 0.375rem;
     --radius-box: 0.5rem;
@@ -59,4 +50,79 @@
 
     --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
     --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────── */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: var(--color-base-300);
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-secondary);
+}
+
+/* ─── KPI card top accent bar ───────────────────────────────── */
+.kpi-accent {
+    border-top: 3px solid;
+}
+.kpi-accent-total {
+    border-top-color: var(--color-primary);
+}
+.kpi-accent-ok {
+    border-top-color: var(--color-success);
+}
+.kpi-accent-ng {
+    border-top-color: var(--color-error);
+}
+.kpi-accent-rate {
+    border-top-color: var(--color-accent);
+}
+
+/* ─── SAP-style grid background ─────────────────────────────── */
+.bg-grid {
+    background-image:
+        linear-gradient(var(--color-base-300) 1px, transparent 1px),
+        linear-gradient(90deg, var(--color-base-300) 1px, transparent 1px);
+    background-size: 40px 40px;
+}
+
+/* ─── Subtle pulse for active KPI tiles ─────────────────────── */
+@keyframes kpi-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(38, 66, 95, 0.1); }
+    50% { box-shadow: 0 0 0 6px rgba(38, 66, 95, 0); }
+}
+.kpi-active {
+    animation: kpi-pulse 2s ease-in-out infinite;
+}
+
+/* ─── Focus ring ─────────────────────────────────────────────── */
+*:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* ─── Sidebar tooltip overflow fix ──────────────────────────── */
+/* Mary UI applies overflow-x-hidden to the sidebar content div,
+   which clips daisyUI tooltip ::after pseudo-elements that extend
+   beyond the sidebar boundary. Override to visible so tooltips
+   display above the main content area. The sidebar content itself
+   is constrained by the fixed width (270px/62px) so no horizontal
+   scrollbar appears. */
+@media (min-width: 1024px) {
+    .drawer-side > div:first-of-type {
+        overflow-x: visible !important;
+    }
+
+    /* Ensure the sidebar wrapper stacks above the main content slot
+       on large screens so tooltips aren't clipped by z-index. */
+    .drawer-side {
+        z-index: 40 !important;
+    }
 }

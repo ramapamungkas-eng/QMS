@@ -240,4 +240,18 @@ No approval/review step — Checker submissions are final immediately.
 
 Laravel 13 (fresh install, no starter kit), Livewire 4, Mary UI (daisyUI + Tailwind v4), SQLite (dev). See the Livewire 4 Page Components and Mary UI sections above for conventions.
 
+## UI Conventions
+
+- **Sidebar**: dark `neutral` background with `neutral-content` text, accent left-border on active menu items, cog icon brand with "SME" + "Quality Management System" subtitle
+- **KPI cards**: 4-column stat grid with colored top accent bar (`kpi-accent-*` classes matching Total/OK/NG/Pass Rate)
+- **Login page**: `bg-grid` CSS background pattern, centered card with shadow, gradient overlay
+- **Wizard steps**: numbered circles with connecting lines (check icon on completed steps, primary highlight on active)
+- **Export status cards**: left border accent (`border-l-4 border-l-primary/success/error`)
+- **Tables**: compact sizing (`table-sm`), striped rows, monospace for dates/numbers
+- **Report filters**: grouped in a card with active filter count badge and "Reset all" button
+- **Stage buttons (S/M/E)**: `btn-circle btn-xs/sm` with colored states (success/error/warning), ping animation on NG
+- **Typography**: IBM Plex Sans (UI), IBM Plex Mono (code/data), uppercase tracking-wider for labels
+- **Empty states**: centered icon + title + description + optional action button
+- **NG detection**: highlighted card border (`border-error/40 bg-error/5`) plus "Needs countermeasure" label
+
 </sme-domain-context>

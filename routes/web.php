@@ -23,6 +23,8 @@ Route::middleware('auth')->group(function () {
 
     Route::livewire('/', 'pages::index');
 
+    Route::livewire('/profile', 'pages::profile.index')->name('profile.index');
+
     Route::prefix('reports')->group(function () {
         Route::livewire('/', 'pages::reports.index')->name('reports.index');
         Route::get('/download/{filename}', function (string $filename) {

@@ -332,15 +332,15 @@ class extends Component
     </x-header>
 
     <div class="grid grid-cols-2 max-sm:grid-cols-1 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
-        <div class="rounded-2xl border border-base-300 bg-base-100 p-3 md:p-4">
+        <div class="rounded-2xl border border-base-300 bg-base-100 p-3 md:p-4 kpi-accent kpi-accent-total">
             <div class="flex items-center gap-2 md:gap-3">
-                <div class="grid h-9 w-9 md:h-11 md:w-11 shrink-0 place-items-center rounded-xl bg-base-content/5 text-base-content">
+                <div class="grid h-9 w-9 md:h-11 md:w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
                     <x-icon name="o-clipboard-document-check" class="w-4 h-4 md:w-5 md:h-5" />
                 </div>
                 <div class="min-w-0 flex-1">
                     <div class="text-[10px] md:text-xs text-base-content/50 uppercase font-bold tracking-wider">Total Inspections</div>
                     <div class="text-xl md:text-2xl font-extrabold mt-0.5">{{ $stats['total'] }}</div>
-                    <div class="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-1 text-[9px] md:text-[10px] text-base-content/40">
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-[9px] md:text-[10px] text-base-content/40">
                         <span class="flex items-center gap-1">
                             <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span> Day: {{ $stats['day_total'] }}
                         </span>
@@ -353,7 +353,7 @@ class extends Component
             </div>
         </div>
 
-        <div class="rounded-2xl border border-base-300 bg-base-100 p-3 md:p-4">
+        <div class="rounded-2xl border border-base-300 bg-base-100 p-3 md:p-4 kpi-accent kpi-accent-ok">
             <div class="flex items-center gap-2 md:gap-3">
                 <div class="grid h-9 w-9 md:h-11 md:w-11 shrink-0 place-items-center rounded-xl bg-success/10 text-success">
                     <x-icon name="o-check-circle" class="w-4 h-4 md:w-5 md:h-5" />
@@ -361,7 +361,7 @@ class extends Component
                 <div class="min-w-0 flex-1">
                     <div class="text-[10px] md:text-xs text-base-content/50 uppercase font-bold tracking-wider">OK</div>
                     <div class="text-xl md:text-2xl font-extrabold mt-0.5 text-success">{{ $stats['ok'] }}</div>
-                    <div class="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-1 text-[9px] md:text-[10px] text-base-content/40">
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-[9px] md:text-[10px] text-base-content/40">
                         <span class="flex items-center gap-1">
                             <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span> Day: {{ $stats['day_ok'] }}
                         </span>
@@ -373,7 +373,7 @@ class extends Component
             </div>
         </div>
 
-        <div class="rounded-2xl border p-3 md:p-4 {{ $stats['ng'] > 0 ? 'border-error/40 bg-error/5' : 'border-base-300 bg-base-100' }}">
+        <div class="rounded-2xl border p-3 md:p-4 kpi-accent kpi-accent-ng {{ $stats['ng'] > 0 ? 'border-error/40 bg-error/5' : 'border-base-300 bg-base-100' }}">
             <div class="flex items-center gap-2 md:gap-3">
                 <div class="grid h-9 w-9 md:h-11 md:w-11 shrink-0 place-items-center rounded-xl bg-error/10 text-error">
                     <x-icon name="o-x-circle" class="w-4 h-4 md:w-5 md:h-5" />
@@ -381,7 +381,7 @@ class extends Component
                 <div class="min-w-0 flex-1">
                     <div class="text-[10px] md:text-xs text-base-content/50 uppercase font-bold tracking-wider">NG</div>
                     <div class="text-xl md:text-2xl font-extrabold mt-0.5 text-error">{{ $stats['ng'] }}</div>
-                    <div class="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-1 text-[9px] md:text-[10px]">
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-[9px] md:text-[10px]">
                         <span class="flex items-center gap-1 {{ $stats['day_ng'] > 0 ? 'text-error/70 font-medium' : 'text-base-content/40' }}">
                             <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span> Day: {{ $stats['day_ng'] }}
                         </span>
@@ -396,7 +396,7 @@ class extends Component
             </div>
         </div>
 
-        <div class="rounded-2xl border border-base-300 bg-base-100 p-3 md:p-4">
+        <div class="rounded-2xl border border-base-300 bg-base-100 p-3 md:p-4 kpi-accent kpi-accent-rate">
             <div class="flex items-center gap-2 md:gap-3">
                 <div class="radial-progress {{ $stats['pass_rate'] >= 80 ? 'text-success' : ($stats['pass_rate'] >= 50 ? 'text-warning' : 'text-error') }} shrink-0"
                      style="--value:{{ $stats['pass_rate'] }}; --size:2.75rem; --thickness: 4px;"
@@ -429,11 +429,11 @@ class extends Component
                 <h3 class="font-bold text-base-content">Parts Overview</h3>
                 <p class="text-xs text-base-content/50">Click a stage badge to view inspection history for that shift.</p>
             </div>
-            <div class="flex items-center gap-3 text-xs text-base-content/60">
-                <span class="flex items-center gap-1.5 rounded-full bg-base-200 px-2.5 py-1"><span class="w-2 h-2 rounded-full bg-success"></span> OK</span>
-                <span class="flex items-center gap-1.5 rounded-full bg-base-200 px-2.5 py-1"><span class="w-2 h-2 rounded-full bg-error"></span> NG</span>
-                <span class="flex items-center gap-1.5 rounded-full bg-base-200 px-2.5 py-1"><span class="w-2 h-2 rounded-full bg-warning"></span> Repair</span>
-                <span class="flex items-center gap-1.5 rounded-full bg-base-200 px-2.5 py-1"><span class="w-2 h-2 rounded-full bg-base-300"></span> Not checked</span>
+            <div class="flex items-center gap-2 text-[10px] md:text-xs text-base-content/50">
+                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-success"></span> OK</span>
+                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-error"></span> NG</span>
+                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-warning"></span> Repair</span>
+                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-base-300"></span> —</span>
             </div>
         </div>
 

@@ -373,6 +373,22 @@ class extends Component {
 
     {{-- Filters --}}
     <x-card shadow class="mb-6">
+        <div class="flex items-center justify-between mb-4 pb-3 border-b border-base-200">
+            <div class="flex items-center gap-2">
+                <x-icon name="o-funnel" class="w-4 h-4 text-base-content/50" />
+                <span class="text-sm font-semibold text-base-content/70">Filters</span>
+                @php
+                    $activeFilterCount = collect([
+                        $date_from, $date_to, $station_type_id, $work_station_id,
+                        $stage, $shift, $judgement, $search,
+                    ])->filter(fn($v) => !empty($v))->count();
+                @endphp
+                @if($activeFilterCount > 0)
+                    <span class="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary text-[10px] text-primary-content font-bold">{{ $activeFilterCount }}</span>
+                @endif
+            </div>
+            <x-button label="Reset all" wire:click="resetFilters" icon="o-x-mark" class="btn-ghost btn-xs" />
+        </div>
         <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div>
                 <x-datetime label="Date from" wire:model.live="date_from" icon="o-calendar" type="date" />
@@ -400,18 +416,15 @@ class extends Component {
             </div>
         </div>
 
-        <div class="mt-4 flex items-center justify-between">
-            <x-button label="Reset filters" wire:click="resetFilters" icon="o-x-mark" class="btn-ghost btn-sm" />
-            <div class="flex items-center gap-2">
-                <span class="text-sm text-base-content/60">{{ $exportCount }} records found</span>
-                <x-button
-                    label="Export Excel"
-                    wire:click="openExportConfirm"
-                    spinner="openExportConfirm"
-                    icon="o-arrow-down-tray"
-                    class="btn-primary"
-                />
-            </div>
+        <div class="mt-4 pt-3 border-t border-base-200 flex items-center justify-between">
+            <span class="text-sm text-base-content/50">{{ $exportCount }} records found</span>
+            <x-button
+                label="Export Excel"
+                wire:click="openExportConfirm"
+                spinner="openExportConfirm"
+                icon="o-arrow-down-tray"
+                class="btn-primary"
+            />
         </div>
     </x-card>
 
@@ -429,7 +442,7 @@ class extends Component {
     {{-- Export progress --}}
     @if ($exportStatus !== '' && $exportStatus !== 'completed' && $exportStatus !== 'failed')
         <div wire:poll.2s="checkExportStatus">
-            <x-card shadow class="mb-6">
+            <x-card shadow class="mb-6 border-l-4 border-l-primary">
                 <div class="flex items-center gap-4">
                     <x-icon name="o-arrow-down-tray" class="h-6 w-6 animate-pulse text-primary" />
                     <div class="flex-1">
@@ -443,12 +456,13 @@ class extends Component {
     @endif
 
     @if ($exportStatus === 'completed' && $exportFileName)
-        <x-card shadow class="mb-6 border border-success/20">
+        <x-card shadow class="mb-6 border-l-4 border-l-success">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <x-icon name="o-check-circle" class="h-6 w-6 text-success" />
                     <div>
-                        <p class="font-medium">Your report {{ $exportFileName }} is ready for download.</p>
+                        <p class="font-medium text-success">Export complete</p>
+                        <p class="text-sm text-base-content/60">{{ $exportFileName }}</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
@@ -464,12 +478,12 @@ class extends Component {
     @endif
 
     @if ($exportStatus === 'failed')
-        <x-card shadow class="mb-6 border border-error/20">
+        <x-card shadow class="mb-6 border-l-4 border-l-error">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <x-icon name="o-exclamation-triangle" class="h-6 w-6 text-error" />
                     <div>
-                        <p class="font-medium">Export failed.</p>
+                        <p class="font-medium text-error">Export failed</p>
                         <p class="text-sm text-base-content/60">Please try again or contact support.</p>
                     </div>
                 </div>
@@ -532,9 +546,9 @@ class extends Component {
                 <p class="text-sm">Try adjusting your filters.</p>
             </div>
         @else
-            <x-table :headers="$headers" :rows="$records" with-pagination>
+            <x-table :headers="$headers" :rows="$records" with-pagination striped class="table-sm">
                 @scope('cell_date', $record)
-                    {{ $record->production_date?->format('Y-m-d') ?? '—' }}
+                    <span class="font-mono text-xs">{{ $record->production_date?->format('Y-m-d') ?? '—' }}</span>
                 @endscope
 
                 @scope('cell_shift', $record)
@@ -542,21 +556,23 @@ class extends Component {
                 @endscope
 
                 @scope('cell_station_work', $record)
-                    <div>
-                        <span class="text-xs text-base-content/50">{{ $record->workStation?->stationType?->name ?? '—' }}</span>
-                        <span class="block text-sm font-medium">{{ $record->workStation?->name ?? '—' }}</span>
+                    <div class="min-w-0">
+                        <span class="text-[10px] text-base-content/50 block leading-tight">{{ $record->workStation?->stationType?->name ?? '—' }}</span>
+                        <span class="text-xs font-medium">{{ $record->workStation?->name ?? '—' }}</span>
                     </div>
                 @endscope
 
                 @scope('cell_part', $record)
-                    <div>
-                        <span class="font-mono text-sm">{{ $record->part?->part_number ?? '—' }}</span>
-                        <span class="block text-xs text-base-content/60">{{ $record->part?->part_name ?? '' }}</span>
+                    <div class="min-w-0">
+                        <span class="font-mono text-xs font-semibold">{{ $record->part?->part_number ?? '—' }}</span>
+                        @if ($record->part?->part_name)
+                            <span class="block text-[10px] text-base-content/50 leading-tight truncate max-w-[120px]">{{ $record->part->part_name }}</span>
+                        @endif
                     </div>
                 @endscope
 
                 @scope('cell_stage', $record)
-                    <x-badge :value="$record->stage?->label()" class="badge-outline badge-sm" />
+                    <x-badge :value="$record->stage?->label()" class="badge-outline badge-xs font-semibold" />
                 @endscope
 
                 @scope('cell_judgement', $record)
@@ -569,15 +585,15 @@ class extends Component {
                             default => 'badge-ghost',
                         };
                     @endphp
-                    <x-badge :value="strtoupper($result ?? '—')" :class="$badgeClass . ' badge-sm'" />
+                    <x-badge :value="strtoupper($result ?? '—')" :class="$badgeClass . ' badge-xs font-bold'" />
                 @endscope
 
                 @scope('cell_checker', $record)
-                    {{ $record->checker?->name ?? '—' }}
+                    <span class="text-xs">{{ $record->checker?->name ?? '—' }}</span>
                 @endscope
 
                 @scope('cell_checked_at', $record)
-                    <span class="text-sm">{{ $record->checked_at?->format('Y-m-d H:i') ?? '—' }}</span>
+                    <span class="font-mono text-xs">{{ $record->checked_at?->format('Y-m-d H:i') ?? '—' }}</span>
                 @endscope
             </x-table>
         @endif

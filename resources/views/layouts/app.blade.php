@@ -65,24 +65,30 @@
                     ['title' => 'Users', 'icon' => 'o-user', 'link' => route('users.index')],
                 ],
             ],
+
+            // ─── Separator before self-service items ───
         ];
     @endphp
 
     {{-- MAIN --}}
     <x-main>
         {{-- SIDEBAR --}}
-        <x-slot:sidebar drawer="main-drawer" collapsible class="bg-base-100 lg:bg-inherit">
+        <x-slot:sidebar drawer="main-drawer" collapsible class="bg-neutral text-neutral-content">
 
             {{-- BRAND --}}
-            <x-app-brand class="px-5 pt-4" />
+            <x-app-brand class="px-5 pt-5" />
 
-            {{-- MENU --}}
-            <x-menu activate-by-route>
+            {{-- MENU — accent left border on active items --}}
+            <x-menu activate-by-route active-bg-color="bg-white/10" class="[&_.mary-active-menu]:!border-l-2 [&_.mary-active-menu]:!border-accent">
 
-                <x-menu-separator />
+                <x-menu-separator class="!border-white/10" />
 
                 @foreach ($navigation as $item)
                     @continue(isset($item['roles']) && ! in_array(auth()->user()->role, $item['roles'], true))
+
+                    @if (! empty($item['separator']))
+                        <x-menu-separator class="!border-white/10" />
+                    @endif
 
                     @if (isset($item['children']))
                         <x-menu-sub :title="$item['title']" :icon="$item['icon'] ?? null">
@@ -96,25 +102,25 @@
                 @endforeach
             </x-menu>
 
-            <div class="mt-auto px-3 pb-4">
-                <x-menu-separator />
-
+            {{-- User profile footer --}}
+            <div class="mt-auto border-t border-white/10 px-3 py-3">
                 @if($user = auth()->user())
-                    <x-dropdown class="w-full">
+                    <x-dropdown class="w-full" position="top" no-x-anchor>
                         <x-slot:trigger>
-                            <x-list-item :item="$user" value="name" sub-value="nik" no-separator no-hover class="-mx-2 !-my-2 cursor-pointer rounded hover:bg-base-200">
-                                <x-slot:avatar>
-                                    <img src="{{ $user->profilePicUrl() }}" class="h-9 w-9 rounded-full object-cover" />
-                                </x-slot:avatar>
-                                <x-slot:actions>
-                                    <x-icon name="o-chevron-up-down" class="h-4 w-4 text-base-content/40" />
-                                </x-slot:actions>
-                            </x-list-item>
+                            <button class="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm transition hover:bg-white/10">
+                                <img src="{{ $user->profilePicUrl() }}" class="h-8 w-8 rounded-full object-cover ring-2 ring-white/20" />
+                                <div class="min-w-0 flex-1">
+                                    <div class="truncate font-medium text-white/90">{{ $user->name }}</div>
+                                    <div class="truncate text-xs text-white/40">{{ $user->nik }}</div>
+                                </div>
+                                <x-icon name="o-chevron-up-down" class="h-3.5 w-3.5 shrink-0 text-white/30" />
+                            </button>
                         </x-slot:trigger>
 
-                        <x-menu-item title="Toggle theme" icon="o-moon" @click="$dispatch('mary-toggle-theme')" />
+                        <x-menu-item class="text-black/90" title="Profile" icon="o-user" link="{{ route('profile.index') }}" />
                         <x-menu-separator />
                         <x-menu-item
+                            class="text-black/90"
                             title="Log out"
                             icon="o-power"
                             link="/logout"
@@ -125,11 +131,17 @@
                 @endif
             </div>
 
+            <p class="hidden-when-collapsed text-center px-5 py-3 text-xs">
+                <span class="text-xs text-white/40">"QJUN is derived from the Japanese word 基準 (Kijun), meaning Standard. It represents the commitment to quality, consistency, and manufacturing excellence."</span>
+            </p>
+
         </x-slot:sidebar>
 
         {{-- The `$slot` goes here --}}
         <x-slot:content>
-            {{ $slot }}
+            <div class="max-w-full">
+                {{ $slot }}
+            </div>
         </x-slot:content>
     </x-main>
 
