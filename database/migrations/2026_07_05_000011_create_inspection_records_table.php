@@ -12,11 +12,11 @@ return new class extends Migration
             $table->id();
             $table->foreignId('part_id')->constrained()->restrictOnDelete();
             $table->foreignId('work_station_id')->constrained()->restrictOnDelete();
-            $table->string('stage'); // InspectionStage enum: start | middle | end
+            $table->string('stage');
             $table->foreignId('checker_id')->constrained('users')->restrictOnDelete();
-            $table->dateTime('checked_at'); // raw submit timestamp, for audit
-            $table->string('shift'); // Shift enum: day | night
-            $table->date('production_date'); // normalized per shift logic — see App\Support\ShiftResolver
+            $table->dateTime('checked_at');
+            $table->string('shift');
+            $table->date('production_date');
             $table->timestamps();
 
             $table->index(['work_station_id', 'production_date', 'shift']);

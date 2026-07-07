@@ -8,19 +8,17 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('work_station_types', function (Blueprint $table) {
+        Schema::create('work_stations', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('process_id')->constrained()->cascadeOnDelete();
-            $table->string('slug')->unique();
+            $table->foreignId('station_type_id')->constrained('work_station_types')->cascadeOnDelete();
             $table->string('name');
-            $table->text('description')->nullable();
-            $table->string('icon')->nullable();
             $table->timestamps();
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('work_station_types');
+        Schema::dropIfExists('work_stations');
     }
 };

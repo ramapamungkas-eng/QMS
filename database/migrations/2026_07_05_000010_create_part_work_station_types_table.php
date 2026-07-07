@@ -11,25 +11,15 @@ return new class extends Migration
         Schema::create('part_work_station_types', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('part_id')->constrained()->cascadeOnDelete();
-            $table->string('work_station_type');
+            $table->foreignId('station_type_id')->constrained('work_station_types')->cascadeOnDelete();
             $table->timestamps();
 
-            $table->unique(['part_id', 'work_station_type']);
+            $table->unique(['part_id', 'station_type_id']);
         });
-
-        Schema::dropIfExists('part_process');
     }
 
     public function down(): void
     {
-        Schema::create('part_process', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('part_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('process_id')->constrained()->cascadeOnDelete();
-            $table->timestamps();
-            $table->unique(['part_id', 'process_id']);
-        });
-
         Schema::dropIfExists('part_work_station_types');
     }
 };

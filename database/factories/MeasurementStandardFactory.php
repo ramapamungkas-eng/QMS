@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\MeasurementStandard;
+use App\Models\PartHardwareMapping;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -10,15 +11,13 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class MeasurementStandardFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
         return [
-            //
+            'part_hardware_mapping_id' => PartHardwareMapping::factory(),
+            'min_value' => fake()->randomFloat(2, 1, 50),
+            'max_value' => fake()->randomFloat(2, 51, 100),
+            'unit' => fake()->randomElement(['Nm', 'mm']),
         ];
     }
 }

@@ -1,15 +1,14 @@
 <?php
 
-use App\Enums\UserRole;
 use App\Jobs\GenerateReport;
 use App\Models\Export;
 use App\Models\InspectionRecord;
 use App\Models\StationType;
 use App\Models\WorkStation;
-use Illuminate\Database\Eloquent\Builder;
+use App\Services\InspectionJudgementService;
+use App\Services\InspectionRecordFilter;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -111,72 +110,30 @@ class extends Component {
         $this->resetPage();
     }
 
-    private function baseQuery(): Builder
+    public function filters(): array
     {
-        $query = InspectionRecord::query()
-            ->with(['part', 'workStation.stationType', 'checker', 'fieldValues.field']);
-
-        if (! empty($this->date_from)) {
-            $query->whereDate('production_date', '>=', Carbon\Carbon::parse($this->date_from));
-        }
-
-        if (! empty($this->date_to)) {
-            $query->whereDate('production_date', '<=', Carbon\Carbon::parse($this->date_to));
-        }
-
-        if (! empty($this->station_type_id)) {
-            $query->whereHas('workStation', fn (Builder $q) => $q->where('station_type_id', $this->station_type_id));
-        }
-
-        if (! empty($this->work_station_id)) {
-            $query->where('work_station_id', $this->work_station_id);
-        }
-
-        if (! empty($this->stage)) {
-            $query->where('stage', $this->stage);
-        }
-
-        if (! empty($this->shift)) {
-            $query->where('shift', $this->shift);
-        }
-
-        if (! empty($this->judgement)) {
-            $judgement = $this->judgement;
-            $query->where(function (Builder $q) use ($judgement) {
-                $q->whereHas('fieldValues', fn (Builder $fv) => $fv->where('auto_judgement', $judgement))
-                    ->orWhereHas('fieldValues', function (Builder $fv) use ($judgement) {
-                        $fv->whereHas('field', fn (Builder $f) => $f->where('field_type', 'enum'))
-                            ->where('value', $judgement);
-                    });
-            });
-        }
-
-        if (! empty($this->search)) {
-            $search = $this->search;
-            $query->whereHas('part', fn (Builder $q) => $q
-                ->where('part_number', 'like', "%{$search}%")
-                ->orWhere('part_name', 'like', "%{$search}%"));
-        }
-
-        $user = auth()->user();
-        if ($user && $user->role === UserRole::Checker) {
-            $query->whereHas('workStation', fn (Builder $q) => $q->where('process_id', $user->process_id));
-        }
-
-        return $query;
+        return [
+            'date_from' => $this->date_from,
+            'date_to' => $this->date_to,
+            'station_type_id' => $this->station_type_id,
+            'work_station_id' => $this->work_station_id,
+            'stage' => $this->stage,
+            'shift' => $this->shift,
+            'judgement' => $this->judgement,
+            'search' => $this->search,
+        ];
     }
 
     public function records(): LengthAwarePaginator
     {
-        return $this->baseQuery()
-            ->orderBy('production_date', 'desc')
-            ->orderBy('checked_at', 'desc')
+        return (new InspectionRecordFilter($this->filters(), auth()->user()))
+            ->queryOrdered()
             ->paginate(25);
     }
 
     public function openExportConfirm(): void
     {
-        if ($this->baseQuery()->count() === 0) {
+        if ((new InspectionRecordFilter($this->filters(), auth()->user()))->query()->count() === 0) {
             $this->warning('No records to export.', position: 'toast-bottom');
 
             return;
@@ -189,16 +146,7 @@ class extends Component {
     {
         $this->showExportConfirm = false;
 
-        $filters = [
-            'date_from' => $this->date_from,
-            'date_to' => $this->date_to,
-            'station_type_id' => $this->station_type_id,
-            'work_station_id' => $this->work_station_id,
-            'stage' => $this->stage,
-            'shift' => $this->shift,
-            'judgement' => $this->judgement,
-            'search' => $this->search,
-        ];
+        $filters = $this->filters();
 
         $filename = 'inspection-report-'.now()->format('Ymd-His').'.xlsx';
         $path = 'reports/'.$filename;
@@ -249,44 +197,7 @@ class extends Component {
 
     public function overallJudgement(InspectionRecord $record): ?string
     {
-        $autoJudgements = $record->fieldValues
-            ->filter(fn ($fv) => $fv->field?->has_auto_judge)
-            ->pluck('auto_judgement')
-            ->filter();
-
-        if ($autoJudgements->isNotEmpty()) {
-            if ($autoJudgements->contains('ng')) {
-                return 'ng';
-            }
-
-            return $autoJudgements->every(fn ($v) => $v === 'ok') ? 'ok' : null;
-        }
-
-        $enumValues = $record->fieldValues
-            ->where('field.field_type', 'enum')
-            ->pluck('value');
-
-        if ($enumValues->isNotEmpty()) {
-            $lower = $enumValues->map(fn ($v) => strtolower($v));
-            if ($lower->contains('ng')) {
-                return 'ng';
-            }
-            if ($lower->contains('repair')) {
-                return 'repair';
-            }
-
-            return 'ok';
-        }
-
-        $booleans = $record->fieldValues
-            ->where('field.field_type', 'boolean')
-            ->pluck('value');
-
-        if ($booleans->isNotEmpty()) {
-            return $booleans->contains('0') ? 'ng' : 'ok';
-        }
-
-        return null;
+        return app(InspectionJudgementService::class)->stageOverall($record->fieldValues);
     }
 
     public function stationTypeOptions(): array
@@ -348,7 +259,7 @@ class extends Component {
 
         return [
             'records' => $this->records(),
-            'exportCount' => $this->baseQuery()->count(),
+            'exportCount' => (new InspectionRecordFilter($this->filters(), auth()->user()))->query()->count(),
             'notifications' => $notifications,
             'recentExports' => Export::where('user_id', auth()->id())
                 ->latest()
@@ -370,6 +281,15 @@ class extends Component {
 
 <div>
     <x-header title="Reports" subtitle="Filter and export inspection records." separator progress-indicator />
+
+    <div class="mb-6 flex flex-wrap gap-2">
+        @foreach (\App\Models\StationType::with('process')->orderBy('name')->get() as $navType)
+            <a href="{{ route('inspections.' . $navType->slug . '.index') }}" class="btn btn-sm btn-ghost">
+                {{ $navType->name }}
+            </a>
+        @endforeach
+        <span class="btn btn-sm btn-primary">Reports</span>
+    </div>
 
     {{-- Filters --}}
     <x-card shadow class="mb-6">

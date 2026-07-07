@@ -28,7 +28,7 @@ class extends Component {
         $credentials = $this->validate();
 
         if (auth()->attempt($credentials)) {
-            request()->session()->regenerate();
+            session()->regenerate();
 
             $this->redirectIntended('/');
 

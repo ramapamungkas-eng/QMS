@@ -8,17 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('work_stations', function (Blueprint $table): void {
+        Schema::create('work_station_types', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('process_id')->constrained()->cascadeOnDelete();
-            $table->string('name'); // B1, B2, B3, B4, Fengyu, Station Spot, Portable Spot, Robot Spot
-            $table->string('type'); // WorkStationType enum value — drives which checklist form applies
+            $table->string('slug')->unique();
+            $table->string('name');
+            $table->text('description')->nullable();
+            $table->string('icon')->nullable();
             $table->timestamps();
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('work_stations');
+        Schema::dropIfExists('work_station_types');
     }
 };

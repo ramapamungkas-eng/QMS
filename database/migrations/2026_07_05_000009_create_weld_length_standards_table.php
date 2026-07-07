@@ -10,11 +10,14 @@ return new class extends Migration
     {
         Schema::create('weld_length_standards', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('part_id')->unique()->constrained()->cascadeOnDelete();
+            $table->foreignId('part_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('work_station_id')->constrained()->cascadeOnDelete();
             $table->decimal('min_length', 8, 2);
             $table->decimal('max_length', 8, 2);
             $table->string('unit')->default('mm');
             $table->timestamps();
+
+            $table->unique(['part_id', 'work_station_id']);
         });
     }
 

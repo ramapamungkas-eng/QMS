@@ -8,15 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('inspection_checklist_templates', function (Blueprint $table) {
+        Schema::create('inspection_checklist_templates', function (Blueprint $table): void {
             $table->id();
-            $table->string('work_station_type')->unique();
+            $table->foreignId('station_type_id')->constrained('work_station_types')->cascadeOnDelete();
             $table->string('name');
             $table->boolean('active')->default(true);
             $table->timestamps();
         });
 
-        Schema::create('inspection_checklist_sections', function (Blueprint $table) {
+        Schema::create('inspection_checklist_sections', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('template_id')->constrained('inspection_checklist_templates')->cascadeOnDelete();
             $table->string('label');
@@ -26,24 +26,24 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('inspection_checklist_fields', function (Blueprint $table) {
+        Schema::create('inspection_checklist_fields', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('section_id')->constrained('inspection_checklist_sections')->cascadeOnDelete();
             $table->string('field_key');
             $table->string('label');
-            $table->string('field_type'); // boolean, numeric, enum, text
+            $table->string('field_type');
             $table->json('options')->nullable();
             $table->boolean('required')->default(false);
             $table->unsignedTinyInteger('order')->default(0);
             $table->boolean('has_auto_judge')->default(false);
-            $table->string('auto_judge_source')->nullable(); // limits, measurement_standard, weld_length_standard
+            $table->string('auto_judge_source')->nullable();
             $table->decimal('min_value', 10, 2)->nullable();
             $table->decimal('max_value', 10, 2)->nullable();
             $table->string('unit')->nullable();
             $table->timestamps();
         });
 
-        Schema::create('inspection_field_values', function (Blueprint $table) {
+        Schema::create('inspection_field_values', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('inspection_record_id')->constrained()->cascadeOnDelete();
             $table->foreignId('field_id')->constrained('inspection_checklist_fields')->cascadeOnDelete();

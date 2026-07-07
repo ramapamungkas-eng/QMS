@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\UserRole;
+use App\Models\Process;
 use App\Models\User;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
@@ -26,6 +27,8 @@ class extends Component {
 
     public string $role = '';
 
+    public string $process_id = '';
+
     public string $password = '';
 
     public string $password_confirmation = '';
@@ -41,6 +44,7 @@ class extends Component {
         $this->nik = $user->nik;
         $this->whatsapp = (string) $user->whatsapp;
         $this->role = $user->role->value;
+        $this->process_id = (string) $user->process_id;
     }
 
     public function roles(): array
@@ -51,16 +55,25 @@ class extends Component {
         );
     }
 
+    public function processes(): array
+    {
+        return Process::orderBy('name')
+            ->get()
+            ->map(fn (Process $p) => ['id' => (string) $p->id, 'name' => $p->name])
+            ->all();
+    }
+
     public function rules(): array
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'nik' => ['required', 'digits:16', Rule::unique('users', 'nik')->ignore($this->user->id)],
+            'nik' => ['required', 'string', 'max:20', Rule::unique('users', 'nik')->ignore($this->user->id)],
             'whatsapp' => ['nullable', 'string', 'max:20'],
             // Blank password/pin means "leave unchanged" — see save() below.
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'pin' => ['nullable', 'digits:6'],
             'role' => ['required', new Enum(UserRole::class)],
+            'process_id' => ['nullable', 'exists:processes,id', 'required_if:role,'.UserRole::Checker->value],
             'photo' => ['nullable', 'image', 'max:2048'],
         ];
     }
@@ -92,6 +105,7 @@ class extends Component {
     {
         return [
             'roles' => $this->roles(),
+            'processes' => $this->processes(),
         ];
     }
 }; ?>
@@ -134,7 +148,7 @@ class extends Component {
                     <div class="space-y-3 border-t border-base-300 bg-base-100/60 px-6 py-5 text-sm text-base-content/70">
                         <div class="flex items-start gap-2">
                             <x-icon name="o-information-circle" class="mt-0.5 h-4 w-4 shrink-0" />
-                            <p>NIK must be a unique 16-digit national ID number.</p>
+                            <p>NIK must be unique, max 20 characters.</p>
                         </div>
                         <div class="flex items-start gap-2">
                             <x-icon name="o-key" class="mt-0.5 h-4 w-4 shrink-0" />
@@ -153,7 +167,7 @@ class extends Component {
                         <p class="text-sm text-base-content/60">Who this person is.</p>
                         <div class="mt-4 grid gap-4 sm:grid-cols-2">
                             <x-input label="Full name" wire:model="name" icon="o-user" class="sm:col-span-2" />
-                            <x-input label="NIK" wire:model="nik" icon="o-identification" maxlength="16" inputmode="numeric" />
+                            <x-input label="NIK" wire:model="nik" icon="o-identification" maxlength="20" />
                             <x-input label="WhatsApp" wire:model="whatsapp" icon="o-phone" placeholder="08xx xxxx xxxx" />
                         </div>
                     </section>
@@ -178,6 +192,19 @@ class extends Component {
                                 </label>
                             @endforeach
                         </div>
+
+                        @if ($role === \App\Enums\UserRole::Checker->value)
+                            <div class="mt-4">
+                                <x-select
+                                    label="Process"
+                                    wire:model="process_id"
+                                    :options="$processes"
+                                    placeholder="Select a process"
+                                    icon="o-cog"
+                                    required
+                                />
+                            </div>
+                        @endif
                     </section>
 
                     <div class="border-t border-base-300"></div>

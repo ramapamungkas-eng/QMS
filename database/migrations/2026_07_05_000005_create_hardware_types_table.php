@@ -8,18 +8,17 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('part_process', function (Blueprint $table) {
+        Schema::create('hardware_types', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('part_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('process_id')->constrained()->cascadeOnDelete();
+            $table->string('part_number')->unique();
+            $table->string('part_name');
+            $table->string('image')->nullable();
             $table->timestamps();
-
-            $table->unique(['part_id', 'process_id']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('part_process');
+        Schema::dropIfExists('hardware_types');
     }
 };

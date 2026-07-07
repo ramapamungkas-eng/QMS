@@ -12,11 +12,10 @@ return new class extends Migration
             $table->id();
             $table->foreignId('part_id')->constrained()->cascadeOnDelete();
             $table->foreignId('hardware_type_id')->constrained()->cascadeOnDelete();
-            $table->string('measurement_type'); // MeasurementType enum: torque | nugget
-            $table->unsignedTinyInteger('usage_qty')->default(1); // how many of this hardware are installed (independent of measurement count)
+            $table->string('measurement_type');
+            $table->unsignedTinyInteger('usage_qty')->default(1);
             $table->timestamps();
 
-            // A part shouldn't have the exact same hardware + measurement type mapped twice.
             $table->unique(['part_id', 'hardware_type_id', 'measurement_type'], 'part_hardware_measurement_unique');
         });
     }

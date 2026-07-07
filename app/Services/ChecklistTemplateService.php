@@ -21,11 +21,6 @@ class ChecklistTemplateService
         return ChecklistTemplate::active()->with(['sections.fields'])->get();
     }
 
-    public function routeSlug(StationType $stationType): string
-    {
-        return $stationType->slug;
-    }
-
     public function fromSlug(string $slug): ?StationType
     {
         return StationType::where('slug', $slug)->first();

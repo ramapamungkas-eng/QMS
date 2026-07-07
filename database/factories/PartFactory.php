@@ -10,15 +10,14 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class PartFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
         return [
-            //
+            'part_number' => fake()->unique()->regexify('PRT-[A-Z0-9]{4,8}'),
+            'part_name' => fake()->word(),
+            'model' => fake()->randomElement(['Model A', 'Model B', 'Model C']),
+            'variant' => fake()->randomElement(['Standard', 'Premium', 'Economy']),
+            'image' => null,
         ];
     }
 }

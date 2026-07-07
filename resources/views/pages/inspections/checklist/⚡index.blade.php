@@ -5,7 +5,7 @@ use App\Models\InspectionRecord;
 use App\Models\Part;
 use App\Models\StationType;
 use App\Models\WorkStation;
-use App\Services\ChecklistTemplateService;
+use App\Services\InspectionJudgementService;
 use App\Services\InspectionStatsService;
 use App\Support\ShiftResolver;
 use Carbon\Carbon;
@@ -143,64 +143,7 @@ class extends Component
 
     protected function overallJudgementFromValues($fieldValues): ?string
     {
-        $autoJudgements = $fieldValues
-            ->filter(fn ($fv) => $fv->field?->has_auto_judge)
-            ->pluck('auto_judgement')
-            ->filter();
-
-        if ($autoJudgements->isNotEmpty()) {
-            if ($autoJudgements->every(fn ($j) => $j === 'ok')) {
-                return 'ok';
-            }
-
-            if ($autoJudgements->contains('ng')) {
-                return 'ng';
-            }
-
-            return null;
-        }
-
-        $manual = $fieldValues
-            ->where('field.field_type', 'enum')
-            ->pluck('value')
-            ->filter();
-
-        if ($manual->isNotEmpty()) {
-            $lowered = $manual->map(fn ($v) => strtolower($v));
-
-            if ($lowered->contains('ng')) {
-                return 'ng';
-            }
-
-            if ($lowered->contains('repair')) {
-                return 'repair';
-            }
-
-            if ($lowered->contains('ok')) {
-                return 'ok';
-            }
-
-            return null;
-        }
-
-        $booleans = $fieldValues
-            ->where('field.field_type', 'boolean')
-            ->pluck('value')
-            ->filter(fn ($v) => $v !== null && $v !== '');
-
-        if ($booleans->isNotEmpty()) {
-            if ($booleans->every(fn ($v) => $v === '1')) {
-                return 'ok';
-            }
-
-            if ($booleans->contains('0')) {
-                return 'ng';
-            }
-
-            return null;
-        }
-
-        return null;
+        return app(InspectionJudgementService::class)->stageOverall($fieldValues);
     }
 
     public function showStageHistory(int $partId, string $stage, string $shift): void
@@ -233,6 +176,7 @@ class extends Component
             $judgement = $this->overallJudgementFromValues($record->fieldValues);
 
             $detailRows = $record->fieldValues->map(fn ($fv) => [
+                'field' => $fv->field,
                 'field_label' => $fv->field?->label ?? '—',
                 'field_type' => $fv->field?->field_type,
                 'field_key' => $fv->field?->field_key ?? '—',
@@ -330,6 +274,24 @@ class extends Component
             <x-button label="New inspection" link="{{ $createUrl }}" icon="o-plus" class="btn-primary max-sm:btn-xs" responsive />
         </x-slot:actions>
     </x-header>
+
+    <div class="mb-6 flex flex-wrap gap-2">
+        @foreach (\App\Models\StationType::with('process')->orderBy('name')->get() as $navType)
+            <a
+                href="{{ route('inspections.' . $navType->slug . '.index') }}"
+                @class([
+                    'btn btn-sm',
+                    'btn-primary' => $workStationType->id === $navType->id,
+                    'btn-ghost' => $workStationType->id !== $navType->id,
+                ])
+            >
+                {{ $navType->name }}
+            </a>
+        @endforeach
+        <a href="{{ route('reports.index') }}" class="btn btn-sm btn-ghost">
+            Reports
+        </a>
+    </div>
 
     <div class="grid grid-cols-2 max-sm:grid-cols-1 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
         <div class="rounded-2xl border border-base-300 bg-base-100 p-3 md:p-4 kpi-accent kpi-accent-total">
@@ -731,16 +693,11 @@ class extends Component
                                                         </td>
                                                         <td class="text-center py-1.5 md:py-2">
                                                             @php
-                                                                $result = $detail['auto_judgement'] ?? match (true) {
-                                                                    $detail['field_type'] === 'enum' && strtolower($detail['value'] ?? '') === 'ok' => 'ok',
-                                                                    $detail['field_type'] === 'enum' && strtolower($detail['value'] ?? '') === 'ng' => 'ng',
-                                                                    $detail['field_type'] === 'enum' && strtolower($detail['value'] ?? '') === 'repair' => 'repair',
-                                                                    $detail['field_type'] === 'boolean' && $detail['field_key'] === 'is_defect' && $detail['value'] === '0' => 'ok',
-                                                                    $detail['field_type'] === 'boolean' && $detail['field_key'] === 'is_defect' && $detail['value'] === '1' => 'ng',
-                                                                    $detail['field_type'] === 'boolean' && $detail['value'] === '1' => 'ok',
-                                                                    $detail['field_type'] === 'boolean' && $detail['value'] === '0' => 'ng',
-                                                                    default => null,
-                                                                };
+                                                                $result = app(InspectionJudgementService::class)->detailResult(
+                                                                    $detail['field'],
+                                                                    $detail['value'],
+                                                                    $detail['auto_judgement'],
+                                                                );
                                                             @endphp
                                                             @if ($result)
                                                                 <x-badge

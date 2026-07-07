@@ -5,20 +5,20 @@ namespace App\Models;
 use App\Enums\InspectionStage;
 use App\Enums\Shift;
 use App\Support\ShiftResolver;
-use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Database\Factories\InspectionRecordFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * @property Shift $shift
  * @property int $checker_id
  * @property InspectionStage $stage
- * @property \Illuminate\Support\Carbon|string|null $production_date
- * @property \Illuminate\Support\Carbon|CarbonImmutable|null $checked_at
+ * @property Carbon|string|null $production_date
+ * @property Carbon|CarbonImmutable|null $checked_at
  */
 class InspectionRecord extends Model
 {
@@ -51,7 +51,7 @@ class InspectionRecord extends Model
             $record->checker_id = (int) ($record->checker_id ?? auth()->id());
             $record->checked_at ??= now();
 
-            [$shift, $productionDate] = ShiftResolver::resolve(new Carbon($record->checked_at));
+            [$shift, $productionDate] = ShiftResolver::resolve(CarbonImmutable::parse($record->checked_at));
             $record->shift = $shift;
             $record->production_date = $productionDate;
         });

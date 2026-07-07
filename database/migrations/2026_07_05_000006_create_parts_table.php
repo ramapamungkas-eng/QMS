@@ -8,16 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('hardware_types', function (Blueprint $table): void {
+        Schema::create('parts', function (Blueprint $table): void {
             $table->id();
             $table->string('part_number')->unique();
             $table->string('part_name');
+            $table->string('model')->nullable();
+            $table->string('variant')->nullable();
+            $table->string('image')->nullable();
             $table->timestamps();
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('hardware_types');
+        Schema::dropIfExists('parts');
     }
 };
