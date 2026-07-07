@@ -10,15 +10,12 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class HardwareTypeFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
         return [
-            //
+            'part_number' => fake()->unique()->regexify('HWT-[A-Z0-9]{4,8}'),
+            'part_name' => fake()->word(),
+            'image' => null,
         ];
     }
 }

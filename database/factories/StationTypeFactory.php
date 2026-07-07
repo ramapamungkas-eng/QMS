@@ -4,20 +4,21 @@ namespace Database\Factories;
 
 use App\Models\Process;
 use App\Models\StationType;
-use App\Models\WorkStation;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<WorkStation>
+ * @extends Factory<StationType>
  */
-class WorkStationFactory extends Factory
+class StationTypeFactory extends Factory
 {
     public function definition(): array
     {
         return [
-            'name' => fake()->word(),
             'process_id' => Process::factory(),
-            'station_type_id' => StationType::factory(),
+            'slug' => fake()->unique()->word(),
+            'name' => fake()->word(),
+            'description' => fake()->sentence(),
+            'icon' => null,
         ];
     }
 }

@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Enums\Shift;
-use App\Models\InspectionFieldValue;
 use App\Models\InspectionRecord;
 use App\Models\StationType;
 use Carbon\Carbon;
@@ -122,45 +121,10 @@ class InspectionStatsService
     /** @param Collection<int, InspectionRecord> $records */
     protected function countJudgement(Collection $records, string $judgement): int
     {
-        return $records->sum(function (InspectionRecord $record) use ($judgement): int {
-            $fieldValues = $record->fieldValues;
+        $service = app(InspectionJudgementService::class);
 
-            $autoJudgements = $fieldValues
-                ->filter(fn (InspectionFieldValue $fv): bool => (bool) ($fv->field->has_auto_judge ?? false))
-                ->pluck('auto_judgement')
-                ->filter();
-
-            if ($autoJudgements->isNotEmpty()) {
-                return $autoJudgements->contains($judgement) ? 1 : 0;
-            }
-
-            $manualValues = $fieldValues
-                ->where('field.field_type', 'enum')
-                ->pluck('value')
-                ->filter();
-
-            if ($manualValues->isNotEmpty()) {
-                $lowered = $manualValues->map(fn ($v) => strtolower($v));
-
-                return $lowered->contains($judgement) ? 1 : 0;
-            }
-
-            $booleans = $fieldValues
-                ->where('field.field_type', 'boolean')
-                ->pluck('value')
-                ->filter(fn ($v) => $v !== null && $v !== '');
-
-            if ($booleans->isNotEmpty()) {
-                if ($judgement === 'ok') {
-                    return $booleans->every(fn ($v) => $v === '1') ? 1 : 0;
-                }
-
-                if ($judgement === 'ng') {
-                    return $booleans->contains('0') ? 1 : 0;
-                }
-            }
-
-            return 0;
+        return $records->sum(function (InspectionRecord $record) use ($service, $judgement): int {
+            return $service->stageOverall($record->fieldValues) === $judgement ? 1 : 0;
         });
     }
 }

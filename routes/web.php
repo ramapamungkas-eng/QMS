@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Models\StationType;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
@@ -37,6 +38,20 @@ Route::middleware('auth')->group(function () {
 
             return Storage::disk('public')->download($path, $filename, $headers);
         })->name('reports.download');
+    });
+
+    Route::prefix('inspections')->group(function () {
+        foreach (StationType::routeSlugs() as $slug => $processName) {
+            // @phpstan-ignore-next-line
+            Route::livewire("/{$slug}", 'pages::inspections.checklist.index', ['type' => $slug])
+                ->middleware("process:{$processName}")
+                ->name("inspections.{$slug}.index");
+
+            // @phpstan-ignore-next-line
+            Route::livewire("/{$slug}/create", 'pages::inspections.checklist.create', ['type' => $slug])
+                ->middleware("process:{$processName}")
+                ->name("inspections.{$slug}.create");
+        }
     });
 
     Route::middleware(EnsureUserIsAdmin::class)->group(function () {

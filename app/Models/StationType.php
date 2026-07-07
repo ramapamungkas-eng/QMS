@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Database\Factories\StationTypeFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,6 +13,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class StationType extends Model
 {
+    /** @use HasFactory<StationTypeFactory> */
+    use HasFactory;
+
     protected $table = 'work_station_types';
 
     protected $fillable = [
@@ -37,5 +42,18 @@ class StationType extends Model
     public function checklistTemplates(): HasMany
     {
         return $this->hasMany(ChecklistTemplate::class, 'station_type_id');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function routeSlugs(): array
+    {
+        return [
+            'stamping' => 'Stamping',
+            'station-spot' => 'Welding',
+            'portable-spot' => 'Welding',
+            'robot-spot' => 'Welding',
+        ];
     }
 }

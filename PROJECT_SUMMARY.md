@@ -70,8 +70,7 @@ database/
     ├── DatabaseSeeder.php
     ├── MasterDataSeeder.php    # processes, stations, parts, hardware, standards
     ├── ManagerSeeder.php       # default manager user
-    ├── ChecklistTemplateSeeder.php  # per-type templates, sections, fields
-    └── MigrateInspectionDataSeeder.php  # data migration from old detail tables
+    └── ChecklistTemplateSeeder.php  # per-type templates, sections, fields
 resources/views/
 ├── layouts/
 │   ├── app.blade.php           # main layout with sidebar navigation
@@ -443,7 +442,7 @@ The inspection history modal shows per-field results:
 - Dashboard homepage with role-aware cards and today's summary
 - Login page (NIK + password) + logout
 - ShiftResolver utility
-- Seeders: MasterDataSeeder, ManagerSeeder, ChecklistTemplateSeeder, MigrateInspectionDataSeeder
+- Seeders: MasterDataSeeder, ManagerSeeder, ChecklistTemplateSeeder
 - **Weld length standards are per-work-station** (`part_id + work_station_id` unique), editable on the parts edit page via modal
 - **Boolean field handling** — index page derives stage-level overall judgement and per-field detail results with correct semantics (inverted for `is_defect`, standard for others)
 - **Hardware info in index** — history modal shows hardware type name + part number beneath field label, and standard range on create form

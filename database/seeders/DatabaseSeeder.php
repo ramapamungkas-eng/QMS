@@ -12,7 +12,6 @@ class DatabaseSeeder extends Seeder
             MasterDataSeeder::class,
             ManagerSeeder::class,
             ChecklistTemplateSeeder::class,
-            MigrateInspectionDataSeeder::class,
         ]);
     }
 }

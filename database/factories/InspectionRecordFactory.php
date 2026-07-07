@@ -3,6 +3,9 @@
 namespace Database\Factories;
 
 use App\Models\InspectionRecord;
+use App\Models\Part;
+use App\Models\User;
+use App\Models\WorkStation;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -10,15 +13,16 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class InspectionRecordFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
         return [
-            //
+            'part_id' => Part::factory(),
+            'work_station_id' => WorkStation::factory(),
+            'stage' => fake()->randomElement(['start', 'middle', 'end']),
+            'checker_id' => User::factory(),
+            'checked_at' => fake()->dateTimeBetween('-1 month'),
+            'shift' => fake()->randomElement(['day', 'night']),
+            'production_date' => fake()->date(),
         ];
     }
 }

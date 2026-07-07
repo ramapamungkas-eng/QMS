@@ -29,20 +29,39 @@
         To add a new page: add one entry here — no new markup needed below.
     --}}
     @php
+        $user = auth()->user();
+        $isAdmin = in_array($user->role, [\App\Enums\UserRole::Manager, \App\Enums\UserRole::LeaderAdmin], true);
+
+        $routeExists = fn (string $name) => app('router')->has($name);
+
+        $allInspections = [
+            ['title' => 'Stamping', 'link' => 'inspections.stamping.index', 'process' => 'Stamping'],
+            ['title' => 'Station Spot', 'link' => 'inspections.station-spot.index', 'process' => 'Welding'],
+            ['title' => 'Portable Spot', 'link' => 'inspections.portable-spot.index', 'process' => 'Welding'],
+            ['title' => 'Robot Spot', 'link' => 'inspections.robot-spot.index', 'process' => 'Welding'],
+        ];
+
+        $inspectionChildren = array_values(array_filter(
+            $isAdmin ? $allInspections : array_filter($allInspections, fn ($item) => $item['process'] === $user->process?->name),
+            fn ($item) => $routeExists($item['link']),
+        ));
+
+        // Resolve route names to URLs after filtering
+        $inspectionChildren = array_map(fn ($item) => ['title' => $item['title'], 'link' => route($item['link']), 'process' => $item['process']], $inspectionChildren);
+
         $navigation = [
             ['title' => 'Dashboard', 'icon' => 'o-sparkles', 'link' => '/'],
+        ];
 
-            [
+        if ($inspectionChildren !== []) {
+            $navigation[] = [
                 'title' => 'Inspections',
                 'icon' => 'o-clipboard-document-check',
-                'children' => [
-                    ['title' => 'Stamping', 'link' => route('inspections.stamping.index')],
-                    ['title' => 'Station Spot', 'link' => route('inspections.station-spot.index')],
-                    ['title' => 'Portable Spot', 'link' => route('inspections.portable-spot.index')],
-                    ['title' => 'Robot Spot', 'link' => route('inspections.robot-spot.index')],
-                ],
-            ],
+                'children' => $inspectionChildren,
+            ];
+        }
 
+        array_push($navigation,
             [
                 'title' => 'Master Data',
                 'icon' => 'o-circle-stack',
@@ -65,9 +84,7 @@
                     ['title' => 'Users', 'icon' => 'o-user', 'link' => route('users.index')],
                 ],
             ],
-
-            // ─── Separator before self-service items ───
-        ];
+        );
     @endphp
 
     {{-- MAIN --}}

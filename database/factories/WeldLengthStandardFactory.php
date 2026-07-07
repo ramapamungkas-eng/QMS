@@ -2,7 +2,9 @@
 
 namespace Database\Factories;
 
+use App\Models\Part;
 use App\Models\WeldLengthStandard;
+use App\Models\WorkStation;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -10,15 +12,14 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class WeldLengthStandardFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
         return [
-            //
+            'part_id' => Part::factory(),
+            'work_station_id' => WorkStation::factory(),
+            'min_length' => fake()->randomFloat(2, 1, 10),
+            'max_length' => fake()->randomFloat(2, 11, 20),
+            'unit' => 'mm',
         ];
     }
 }
