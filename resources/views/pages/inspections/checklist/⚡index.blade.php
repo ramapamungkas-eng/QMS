@@ -275,24 +275,6 @@ class extends Component
         </x-slot:actions>
     </x-header>
 
-    <div class="mb-6 flex flex-wrap gap-2">
-        @foreach (\App\Models\StationType::with('process')->orderBy('name')->get() as $navType)
-            <a
-                href="{{ route('inspections.' . $navType->slug . '.index') }}"
-                @class([
-                    'btn btn-sm',
-                    'btn-primary' => $workStationType->id === $navType->id,
-                    'btn-ghost' => $workStationType->id !== $navType->id,
-                ])
-            >
-                {{ $navType->name }}
-            </a>
-        @endforeach
-        <a href="{{ route('reports.index') }}" class="btn btn-sm btn-ghost">
-            Reports
-        </a>
-    </div>
-
     <div class="grid grid-cols-2 max-sm:grid-cols-1 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
         <div class="rounded-2xl border border-base-300 bg-base-100 p-3 md:p-4 kpi-accent kpi-accent-total">
             <div class="flex items-center gap-2 md:gap-3">

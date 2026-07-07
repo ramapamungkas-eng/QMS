@@ -82,6 +82,10 @@ class extends Component {
     {
         $data = $this->validate();
 
+        if ($data['role'] !== UserRole::Checker->value) {
+            $data['process_id'] = null;
+        }
+
         if ($this->photo) {
             $data['profile_pic'] = $this->photo->store('profile-pics', 'public');
         }
@@ -185,7 +189,7 @@ class extends Component {
                                         {{ $role === $option['id'] ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-base-300 hover:border-base-content/30' }}"
                                 >
                                     <div class="flex items-center gap-2">
-                                        <input type="radio" wire:model="role" value="{{ $option['id'] }}" class="radio radio-primary radio-sm" />
+                                        <input type="radio" wire:model.live="role" value="{{ $option['id'] }}" class="radio radio-primary radio-sm" />
                                         <span class="font-medium">{{ $option['name'] }}</span>
                                     </div>
                                     <span class="ml-6 text-xs text-base-content/60">{{ $option['description'] }}</span>

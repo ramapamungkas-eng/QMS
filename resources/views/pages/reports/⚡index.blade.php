@@ -282,15 +282,6 @@ class extends Component {
 <div>
     <x-header title="Reports" subtitle="Filter and export inspection records." separator progress-indicator />
 
-    <div class="mb-6 flex flex-wrap gap-2">
-        @foreach (\App\Models\StationType::with('process')->orderBy('name')->get() as $navType)
-            <a href="{{ route('inspections.' . $navType->slug . '.index') }}" class="btn btn-sm btn-ghost">
-                {{ $navType->name }}
-            </a>
-        @endforeach
-        <span class="btn btn-sm btn-primary">Reports</span>
-    </div>
-
     {{-- Filters --}}
     <x-card shadow class="mb-6">
         <div class="flex items-center justify-between mb-4 pb-3 border-b border-base-200">

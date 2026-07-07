@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 new
@@ -21,6 +22,9 @@ class extends Component
     public Shift $shift;
 
     public string $productionDate;
+
+    #[Url(history: true)]
+    public string $search = '';
 
     public function mount(): void
     {
@@ -44,23 +48,50 @@ class extends Component
     {
         $statsService = app(InspectionStatsService::class);
 
-        return collect($this->accessibleTypes())->map(function (StationType $type) use ($statsService) {
-            $stats = $statsService->dailyByType($type, $this->productionDate);
-            $slug = $type->slug;
+        return collect($this->accessibleTypes())
+            ->map(function (StationType $type) use ($statsService) {
+                $stats = $statsService->dailyByType($type, $this->productionDate);
+                $slug = $type->slug;
 
-            return [
-                'type' => $type,
-                'label' => $type->name,
-                'icon' => $type->icon,
-                'description' => $type->description,
-                'total' => $stats['total'],
-                'ok' => $stats['ok'],
-                'ng' => $stats['ng'],
-                'pass_rate' => $stats['pass_rate'],
-                'route_index' => route("inspections.{$slug}.index"),
-                'route_create' => route("inspections.{$slug}.create"),
-            ];
-        });
+                return [
+                    'id' => $type->id,
+                    'type' => $type,
+                    'label' => $type->name,
+                    'icon' => $type->icon,
+                    'process' => $type->process?->name ?? '—',
+                    'description' => $type->description,
+                    'total' => $stats['total'],
+                    'ok' => $stats['ok'],
+                    'ng' => $stats['ng'],
+                    'pass_rate' => $stats['pass_rate'],
+                    'route_index' => route("inspections.{$slug}.index"),
+                    'route_create' => route("inspections.{$slug}.create"),
+                ];
+            })
+            ->filter(function (array $stat) {
+                if ($this->search === '') {
+                    return true;
+                }
+
+                $term = strtolower($this->search);
+
+                return str_contains(strtolower($stat['label']), $term)
+                    || str_contains(strtolower($stat['process']), $term)
+                    || str_contains(strtolower($stat['description']), $term);
+            });
+    }
+
+    public function headers(): array
+    {
+        return [
+            ['key' => 'label', 'label' => 'Station Type', 'class' => 'w-48'],
+            ['key' => 'process', 'label' => 'Process', 'class' => 'w-32'],
+            ['key' => 'description', 'label' => 'Description', 'class' => 'min-w-[12rem]'],
+            ['key' => 'total', 'label' => 'Total', 'class' => 'w-20 text-right'],
+            ['key' => 'ok', 'label' => 'OK', 'class' => 'w-20 text-right'],
+            ['key' => 'ng', 'label' => 'NG', 'class' => 'w-20 text-right'],
+            ['key' => 'pass_rate', 'label' => 'Pass Rate', 'class' => 'w-28 text-right'],
+        ];
     }
 
     public function todaySummary(): array
@@ -81,6 +112,7 @@ class extends Component
     {
         return [
             'typeStats' => $this->typeStats(),
+            'headers' => $this->headers(),
             'summary' => $this->todaySummary(),
             'recentNg' => $this->recentNgItems(),
             'user' => auth()->user(),
@@ -172,41 +204,77 @@ class extends Component
         </div>
     </div>
 
-    {{-- Inspection type quick-action cards --}}
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        @foreach($typeStats as $stat)
-            <x-card shadow class="border border-base-200">
-                <div class="flex items-start gap-4">
-                    <div class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
-                        <x-icon name="{{ $stat['icon'] }}" class="w-6 h-6" />
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <h3 class="font-bold text-base-content text-lg">{{ $stat['label'] }}</h3>
-                        <p class="text-xs text-base-content/50 mt-0.5 line-clamp-2">{{ $stat['description'] }}</p>
+    {{-- Navigation table --}}
+    <x-card shadow class="border border-base-200">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-1 border-b border-base-200">
+            <div>
+                <h3 class="font-bold text-base-content">Inspection Boards</h3>
+                <p class="text-xs text-base-content/50">Click a row to open its inspection board.</p>
+            </div>
+            <x-input
+                placeholder="Search station type or process..."
+                wire:model.live.debounce.350ms="search"
+                clearable
+                icon="o-magnifying-glass"
+                class="w-full sm:w-64"
+            />
+        </div>
 
-                        <div class="flex items-center gap-3 mt-3 text-sm">
-                            <span class="font-semibold">{{ $stat['total'] }} inspections</span>
-                            @if($stat['total'] > 0)
-                                <span class="flex items-center gap-1 text-success">
-                                    <x-icon name="o-check-circle" class="w-3.5 h-3.5" /> {{ $stat['ok'] }}
-                                </span>
-                                @if($stat['ng'] > 0)
-                                    <span class="flex items-center gap-1 text-error">
-                                        <x-icon name="o-x-circle" class="w-3.5 h-3.5" /> {{ $stat['ng'] }}
-                                    </span>
-                                @endif
-                            @endif
-                        </div>
-
-                        <div class="flex items-center gap-2 mt-3">
-                            <x-button label="New inspection" link="{{ $stat['route_create'] }}" icon="o-plus" class="btn-primary btn-sm" />
-                            <x-button label="View board" link="{{ $stat['route_index'] }}" icon="o-arrow-right" class="btn-ghost btn-sm" />
-                        </div>
-                    </div>
+        @if ($typeStats->isEmpty())
+            <div class="flex flex-col items-center gap-3 py-16 text-center">
+                <div class="grid h-14 w-14 place-items-center rounded-full bg-base-200">
+                    <x-icon name="o-inbox" class="h-7 w-7 text-base-content/30" />
                 </div>
-            </x-card>
-        @endforeach
-    </div>
+                <div>
+                    <p class="font-semibold text-base-content/70">No inspection boards match your search</p>
+                    <p class="text-sm text-base-content/45">Try adjusting your search term.</p>
+                </div>
+                @if ($search !== '')
+                    <x-button label="Clear search" wire:click="$set('search', '')" icon="o-x-mark" class="btn-sm mt-1" />
+                @endif
+            </div>
+        @else
+            <x-table :headers="$headers" :rows="$typeStats" link="{route_index}">
+                @scope('cell_label', $stat)
+                    <div class="flex items-center gap-3">
+                        <div class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                            <x-icon name="{{ $stat['icon'] }}" class="w-4 h-4" />
+                        </div>
+                        <span class="font-bold text-base-content">{{ $stat['label'] }}</span>
+                    </div>
+                @endscope
+
+                @scope('cell_total', $stat)
+                    <div class="text-right font-mono text-sm">{{ $stat['total'] }}</div>
+                @endscope
+
+                @scope('cell_ok', $stat)
+                    <div class="text-right font-mono text-sm text-success">{{ $stat['ok'] }}</div>
+                @endscope
+
+                @scope('cell_ng', $stat)
+                    <div class="text-right font-mono text-sm {{ $stat['ng'] > 0 ? 'text-error font-semibold' : 'text-base-content/60' }}">
+                        {{ $stat['ng'] }}
+                    </div>
+                @endscope
+
+                @scope('cell_pass_rate', $stat)
+                    <div class="text-right font-mono text-sm">
+                        <span class="{{ $stat['pass_rate'] >= 80 ? 'text-success' : ($stat['pass_rate'] >= 50 ? 'text-warning' : 'text-error') }}">
+                            {{ $stat['pass_rate'] }}%
+                        </span>
+                    </div>
+                @endscope
+
+                @scope('actions', $stat)
+                    <div class="flex items-center justify-end gap-2">
+                        <x-button icon="o-plus" link="{{ $stat['route_create'] }}" class="btn-ghost btn-xs" tooltip="New inspection" />
+                        <x-button icon="o-arrow-right" link="{{ $stat['route_index'] }}" class="btn-primary btn-xs" tooltip="View board" />
+                    </div>
+                @endscope
+            </x-table>
+        @endif
+    </x-card>
 
     {{-- Recent NG alerts --}}
     @if($recentNg->isNotEmpty())

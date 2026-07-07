@@ -73,3 +73,37 @@ it('requires process for checker role', function () {
         ->call('save')
         ->assertHasErrors(['process_id']);
 });
+
+it('shows process select only for checker role and hides it for other roles', function () {
+    $component = Livewire::actingAs($this->manager)
+        ->test('pages::users.create')
+        ->set('role', UserRole::Checker->value);
+
+    $component->assertSee('Process');
+
+    $component->set('role', UserRole::Manager->value);
+    $component->assertDontSee('Select a process');
+
+    $component->set('role', UserRole::LeaderAdmin->value);
+    $component->assertDontSee('Select a process');
+});
+
+it('does not require process for non checker roles', function (string $role) {
+    Livewire::actingAs($this->manager)
+        ->test('pages::users.create')
+        ->set('name', UserRole::from($role)->label().' User')
+        ->set('nik', strtoupper($role).'-001')
+        ->set('role', $role)
+        ->set('process_id', '')
+        ->set('password', 'password')
+        ->set('password_confirmation', 'password')
+        ->set('pin', '123456')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('users.index'));
+
+    expect(User::where('nik', strtoupper($role).'-001')->exists())->toBeTrue();
+})->with([
+    'manager' => UserRole::Manager->value,
+    'leader_admin' => UserRole::LeaderAdmin->value,
+]);
