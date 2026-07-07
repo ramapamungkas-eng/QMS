@@ -1,7 +1,11 @@
 <?php
 
+use App\Models\User;
+
 test('returns a successful response', function () {
-    $response = $this->get('/');
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->get('/');
 
     $response->assertOk();
 });

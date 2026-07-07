@@ -19,7 +19,7 @@ class extends Component {
     public function mount(): void
     {
         if (auth()->user()) {
-            redirect('/');
+            $this->redirect('/');
         }
     }
 
@@ -30,7 +30,7 @@ class extends Component {
         if (auth()->attempt($credentials)) {
             request()->session()->regenerate();
 
-            redirect()->intended('/');
+            $this->redirectIntended('/');
 
             return;
         }
