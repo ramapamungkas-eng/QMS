@@ -12,6 +12,10 @@ use Illuminate\Support\Collection;
 
 class InspectionStatsService
 {
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
     public function dailyByType(StationType $stationType, string $productionDate, array $options = []): array
     {
         $targetDate = Carbon::parse($productionDate);
@@ -65,6 +69,11 @@ class InspectionStatsService
         ];
     }
 
+    /** @return array<string, mixed> */
+    /**
+     * @param  array<int, StationType>  $stationTypes
+     * @return array<string, mixed>
+     */
     public function overallSummary(string $productionDate, array $stationTypes): array
     {
         $targetDate = Carbon::parse($productionDate);
@@ -91,6 +100,11 @@ class InspectionStatsService
         ];
     }
 
+    /** @return Collection<int, InspectionRecord> */
+    /**
+     * @param  array<int, StationType>  $stationTypes
+     * @return Collection<int, InspectionRecord>
+     */
     public function recentNgRecords(string $productionDate, array $stationTypes, int $limit = 10): Collection
     {
         $typeIds = array_map(fn (StationType $st) => $st->id, $stationTypes);
@@ -105,13 +119,14 @@ class InspectionStatsService
             ->get();
     }
 
+    /** @param Collection<int, InspectionRecord> $records */
     protected function countJudgement(Collection $records, string $judgement): int
     {
-        return $records->sum(function (InspectionRecord $record) use ($judgement) {
+        return $records->sum(function (InspectionRecord $record) use ($judgement): int {
             $fieldValues = $record->fieldValues;
 
             $autoJudgements = $fieldValues
-                ->filter(fn (InspectionFieldValue $fv) => $fv->field?->has_auto_judge)
+                ->filter(fn (InspectionFieldValue $fv): bool => (bool) ($fv->field->has_auto_judge ?? false))
                 ->pluck('auto_judgement')
                 ->filter();
 

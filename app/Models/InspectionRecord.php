@@ -5,13 +5,24 @@ namespace App\Models;
 use App\Enums\InspectionStage;
 use App\Enums\Shift;
 use App\Support\ShiftResolver;
+use Carbon\Carbon;
+use Carbon\CarbonImmutable;
+use Database\Factories\InspectionRecordFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property Shift $shift
+ * @property int $checker_id
+ * @property InspectionStage $stage
+ * @property \Illuminate\Support\Carbon|string|null $production_date
+ * @property \Illuminate\Support\Carbon|CarbonImmutable|null $checked_at
+ */
 class InspectionRecord extends Model
 {
+    /** @use HasFactory<InspectionRecordFactory> */
     use HasFactory;
 
     protected $fillable = [
@@ -37,30 +48,34 @@ class InspectionRecord extends Model
     protected static function booted(): void
     {
         static::creating(function (InspectionRecord $record): void {
-            $record->checker_id ??= auth()->id();
+            $record->checker_id = (int) ($record->checker_id ?? auth()->id());
             $record->checked_at ??= now();
 
-            [$shift, $productionDate] = ShiftResolver::resolve($record->checked_at);
+            [$shift, $productionDate] = ShiftResolver::resolve(new Carbon($record->checked_at));
             $record->shift = $shift;
             $record->production_date = $productionDate;
         });
     }
 
+    /** @return BelongsTo<Part, $this> */
     public function part(): BelongsTo
     {
         return $this->belongsTo(Part::class);
     }
 
+    /** @return BelongsTo<WorkStation, $this> */
     public function workStation(): BelongsTo
     {
         return $this->belongsTo(WorkStation::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function checker(): BelongsTo
     {
         return $this->belongsTo(User::class, 'checker_id');
     }
 
+    /** @return HasMany<InspectionFieldValue, $this> */
     public function fieldValues(): HasMany
     {
         return $this->hasMany(InspectionFieldValue::class);

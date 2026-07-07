@@ -14,11 +14,13 @@ class PartWorkStationType extends Model
         'station_type_id',
     ];
 
+    /** @return BelongsTo<Part, $this> */
     public function part(): BelongsTo
     {
         return $this->belongsTo(Part::class);
     }
 
+    /** @return BelongsTo<StationType, $this> */
     public function stationType(): BelongsTo
     {
         return $this->belongsTo(StationType::class);

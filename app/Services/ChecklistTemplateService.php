@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\UserRole;
 use App\Models\ChecklistTemplate;
 use App\Models\StationType;
+use App\Models\User;
 use Illuminate\Support\Collection;
 
 class ChecklistTemplateService
@@ -14,6 +15,7 @@ class ChecklistTemplateService
         return ChecklistTemplate::forType($stationType)->active()->with(['sections.fields'])->first();
     }
 
+    /** @return Collection<int, ChecklistTemplate> */
     public function allActive(): Collection
     {
         return ChecklistTemplate::active()->with(['sections.fields'])->get();
@@ -29,13 +31,16 @@ class ChecklistTemplateService
         return StationType::where('slug', $slug)->first();
     }
 
+    /** @return array<int, string> */
     public function allSlugs(): array
     {
         return StationType::pluck('slug')->all();
     }
 
+    /** @return array<int, StationType> */
     public function accessibleTypes(): array
     {
+        /** @var User $user */
         $user = auth()->user();
 
         $all = StationType::with('process')->get()->all();

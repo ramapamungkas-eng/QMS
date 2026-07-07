@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Enums\UserRole;
+use App\Models\InspectionFieldValue;
 use App\Models\InspectionRecord;
 use App\Models\User;
 use Carbon\Carbon;
@@ -21,12 +22,15 @@ use PhpOffice\PhpSpreadsheet\Style\Color;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
+/** @implements WithMapping<InspectionRecord> */
 class InspectionReportExport implements FromQuery, ShouldAutoSize, ShouldQueue, WithChunkReading, WithHeadings, WithMapping, WithStyles, WithTitle
 {
+    /** @var array<string, mixed> */
     protected array $filters;
 
     protected ?User $user;
 
+    /** @param array<string, mixed> $filters */
     public function __construct(array $filters, ?User $user = null)
     {
         $this->filters = $filters;
@@ -38,6 +42,7 @@ class InspectionReportExport implements FromQuery, ShouldAutoSize, ShouldQueue, 
         return 'Inspection Records';
     }
 
+    /** @return Builder<InspectionRecord> */
     public function query(): Builder
     {
         $query = InspectionRecord::query()
@@ -90,7 +95,7 @@ class InspectionReportExport implements FromQuery, ShouldAutoSize, ShouldQueue, 
                 ->orWhere('part_name', 'like', "%{$search}%"));
         }
 
-        if ($this->user && $this->user->role === UserRole::Checker) {
+        if ($this->user !== null && $this->user->role === UserRole::Checker) {
             $query->whereHas('workStation', fn (Builder $q) => $q->where('process_id', $this->user->process_id));
         }
 
@@ -98,6 +103,7 @@ class InspectionReportExport implements FromQuery, ShouldAutoSize, ShouldQueue, 
             ->orderBy('checked_at', 'desc');
     }
 
+    /** @return list<string> */
     public function headings(): array
     {
         return [
@@ -115,6 +121,7 @@ class InspectionReportExport implements FromQuery, ShouldAutoSize, ShouldQueue, 
         ];
     }
 
+    /** @return list<mixed> */
     public function map($record): array
     {
         $judgement = $this->overallJudgement($record);
@@ -124,15 +131,15 @@ class InspectionReportExport implements FromQuery, ShouldAutoSize, ShouldQueue, 
             ->implode('; ');
 
         return [
-            $record->production_date?->format('Y-m-d'),
-            $record->shift?->label() ?? $record->shift,
-            $record->workStation?->stationType?->name ?? '—',
-            $record->workStation?->name ?? '—',
-            $record->part?->part_number ?? '—',
-            $record->part?->part_name ?? '—',
-            $record->stage?->label() ?? $record->stage,
+            $record->production_date instanceof Carbon ? $record->production_date->format('Y-m-d') : (string) ($record->production_date ?? '—'),
+            $record->shift->label(),
+            $record->workStation?->stationType?->name,
+            $record->workStation?->name,
+            $record->part?->part_number,
+            $record->part?->part_name,
+            $record->stage->label(),
             strtoupper($judgement ?? '—'),
-            $record->checker?->name ?? '—',
+            $record->checker?->name,
             $record->checked_at?->format('Y-m-d H:i'),
             $remarks ?: '—',
         ];
@@ -141,7 +148,7 @@ class InspectionReportExport implements FromQuery, ShouldAutoSize, ShouldQueue, 
     protected function overallJudgement(InspectionRecord $record): ?string
     {
         $autoJudgements = $record->fieldValues
-            ->filter(fn ($fv) => $fv->field?->has_auto_judge)
+            ->filter(fn (InspectionFieldValue $fv): bool => (bool) ($fv->field->has_auto_judge ?? false))
             ->pluck('auto_judgement')
             ->filter();
 
@@ -181,6 +188,7 @@ class InspectionReportExport implements FromQuery, ShouldAutoSize, ShouldQueue, 
         return 200;
     }
 
+    /** @return array<int, array<string, mixed>> */
     public function styles(Worksheet $sheet): array
     {
         $highestRow = $sheet->getHighestRow();

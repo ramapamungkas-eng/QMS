@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\ChecklistSection;
 use App\Models\ChecklistTemplate;
 use App\Models\StationType;
 use Illuminate\Database\Seeder;
@@ -56,6 +57,7 @@ class ChecklistTemplateSeeder extends Seeder
 
     protected function template_stamping(ChecklistTemplate $template): void
     {
+        /** @var ChecklistSection $section */
         $section = $template->sections()->updateOrCreate(
             ['label' => 'Visual Defect Check'],
             ['order' => 1, 'allow_multiple' => false],
@@ -66,6 +68,7 @@ class ChecklistTemplateSeeder extends Seeder
             ['label' => 'Visual Defect Present?', 'field_type' => 'boolean', 'required' => true, 'order' => 1],
         );
 
+        /** @var ChecklistSection $section */
         $section = $template->sections()->updateOrCreate(
             ['label' => 'Jig / Spec Conformance'],
             ['order' => 2, 'allow_multiple' => false],
@@ -76,6 +79,7 @@ class ChecklistTemplateSeeder extends Seeder
             ['label' => 'Jig / Spec OK?', 'field_type' => 'boolean', 'required' => true, 'order' => 1],
         );
 
+        /** @var ChecklistSection $section */
         $section = $template->sections()->updateOrCreate(
             ['label' => 'Final Judgement'],
             ['order' => 3, 'allow_multiple' => false],
@@ -94,6 +98,7 @@ class ChecklistTemplateSeeder extends Seeder
 
     protected function template_station_spot(ChecklistTemplate $template): void
     {
+        /** @var ChecklistSection $section */
         $section = $template->sections()->updateOrCreate(
             ['label' => 'Hardware Measurements'],
             ['order' => 1, 'allow_multiple' => true, 'source_type' => 'part_hardware_mappings'],
@@ -114,6 +119,7 @@ class ChecklistTemplateSeeder extends Seeder
 
     protected function template_portable_spot(ChecklistTemplate $template): void
     {
+        /** @var ChecklistSection $section */
         $section = $template->sections()->updateOrCreate(
             ['label' => 'Tap Test Check'],
             ['order' => 1, 'allow_multiple' => false],
@@ -127,6 +133,7 @@ class ChecklistTemplateSeeder extends Seeder
 
     protected function template_robot_spot(ChecklistTemplate $template): void
     {
+        /** @var ChecklistSection $section */
         $section = $template->sections()->updateOrCreate(
             ['label' => 'Visual & Jig Check'],
             ['order' => 1, 'allow_multiple' => false],
@@ -137,6 +144,7 @@ class ChecklistTemplateSeeder extends Seeder
             ['label' => 'Jig OK?', 'field_type' => 'boolean', 'required' => false, 'order' => 1],
         );
 
+        /** @var ChecklistSection $section */
         $section = $template->sections()->updateOrCreate(
             ['label' => 'Weld Length Measurement'],
             ['order' => 2, 'allow_multiple' => false],

@@ -5,6 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property bool $has_auto_judge
+ */
 class ChecklistField extends Model
 {
     protected $table = 'inspection_checklist_fields';
@@ -35,6 +38,7 @@ class ChecklistField extends Model
         ];
     }
 
+    /** @return BelongsTo<ChecklistSection, $this> */
     public function section(): BelongsTo
     {
         return $this->belongsTo(ChecklistSection::class, 'section_id');
