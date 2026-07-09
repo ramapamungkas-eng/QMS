@@ -62,26 +62,18 @@
         }
 
         array_push($navigation,
+            ['title' => 'Reports', 'icon' => 'o-chart-bar', 'link' => route('reports.index')],
+
             [
                 'title' => 'Master Data',
                 'icon' => 'o-circle-stack',
                 'roles' => [\App\Enums\UserRole::Manager, \App\Enums\UserRole::LeaderAdmin],
                 'children' => [
+                    ['title' => 'Users', 'icon' => 'o-user', 'link' => route('users.index')],
                     ['title' => 'Parts', 'link' => route('parts.index')],
                     ['title' => 'Hardware Types', 'link' => route('hardware.index')],
                     ['title' => 'Work Stations', 'link' => route('work-stations.index')],
                     ['title' => 'Checklists', 'link' => route('checklists.index')],
-                ],
-            ],
-
-            ['title' => 'Reports', 'icon' => 'o-chart-bar', 'link' => route('reports.index')],
-
-            [
-                'title' => 'Management',
-                'icon' => 'o-users',
-                'roles' => [\App\Enums\UserRole::Manager, \App\Enums\UserRole::LeaderAdmin],
-                'children' => [
-                    ['title' => 'Users', 'icon' => 'o-user', 'link' => route('users.index')],
                 ],
             ],
         );
