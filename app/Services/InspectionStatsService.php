@@ -42,14 +42,10 @@ class InspectionStatsService
         $ng = $this->countJudgement($records, 'ng');
         $passRate = $total > 0 ? (int) round(($ok / $total) * 100) : 0;
 
-        $dayBase = (clone $base)->where('shift', Shift::Day);
-        $nightBase = (clone $base)->where('shift', Shift::Night);
-
-        $dayRecords = (clone $dayBase)->with('fieldValues.field')->get();
-        $nightRecords = (clone $nightBase)->with('fieldValues.field')->get();
-
-        $dayTotal = (clone $dayBase)->count();
-        $nightTotal = (clone $nightBase)->count();
+        $dayRecords = $records->filter(fn ($r) => $r->shift === Shift::Day);
+        $nightRecords = $records->filter(fn ($r) => $r->shift === Shift::Night);
+        $dayTotal = $dayRecords->count();
+        $nightTotal = $nightRecords->count();
 
         return [
             'total' => $total,
@@ -66,6 +62,53 @@ class InspectionStatsService
             'day_rate' => $dayTotal > 0 ? (int) round(($this->countJudgement($dayRecords, 'ok') / $dayTotal) * 100) : 0,
             'night_rate' => $nightTotal > 0 ? (int) round(($this->countJudgement($nightRecords, 'ok') / $nightTotal) * 100) : 0,
         ];
+    }
+
+    /**
+     * @param  array<int, StationType>  $stationTypes
+     * @return array<int, array<string, mixed>>
+     */
+    public function allByTypes(string $productionDate, array $stationTypes): array
+    {
+        $targetDate = Carbon::parse($productionDate);
+        $typeIds = array_map(fn (StationType $st) => $st->id, $stationTypes);
+
+        $allRecords = InspectionRecord::query()
+            ->whereDate('production_date', $targetDate)
+            ->whereHas('workStation', fn (Builder $q) => $q->whereIn('station_type_id', $typeIds))
+            ->with('fieldValues.field', 'workStation')
+            ->get()
+            ->groupBy(fn ($r) => $r->workStation->station_type_id);
+
+        return array_map(function (StationType $type) use ($allRecords) {
+            $typeRecords = $allRecords->get($type->id, collect());
+            $total = $typeRecords->count();
+            $ok = $this->countJudgement($typeRecords, 'ok');
+            $ng = $this->countJudgement($typeRecords, 'ng');
+
+            $dayRecords = $typeRecords->filter(fn ($r) => $r->shift === Shift::Day);
+            $nightRecords = $typeRecords->filter(fn ($r) => $r->shift === Shift::Night);
+            $dayTotal = $dayRecords->count();
+            $nightTotal = $nightRecords->count();
+
+            return [
+                'id' => $type->id,
+                'type' => $type,
+                'total' => $total,
+                'ok' => $ok,
+                'ng' => $ng,
+                'pass_rate' => $total > 0 ? (int) round(($ok / $total) * 100) : 0,
+                'parts_checked' => $typeRecords->pluck('part_id')->unique()->count(),
+                'day_total' => $dayTotal,
+                'night_total' => $nightTotal,
+                'day_ok' => $this->countJudgement($dayRecords, 'ok'),
+                'night_ok' => $this->countJudgement($nightRecords, 'ok'),
+                'day_ng' => $this->countJudgement($dayRecords, 'ng'),
+                'night_ng' => $this->countJudgement($nightRecords, 'ng'),
+                'day_rate' => $dayTotal > 0 ? (int) round(($this->countJudgement($dayRecords, 'ok') / $dayTotal) * 100) : 0,
+                'night_rate' => $nightTotal > 0 ? (int) round(($this->countJudgement($nightRecords, 'ok') / $nightTotal) * 100) : 0,
+            ];
+        }, $stationTypes);
     }
 
     /** @return array<string, mixed> */

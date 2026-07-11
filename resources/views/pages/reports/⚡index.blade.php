@@ -133,7 +133,7 @@ class extends Component {
 
     public function openExportConfirm(): void
     {
-        if ((new InspectionRecordFilter($this->filters(), auth()->user()))->query()->count() === 0) {
+        if ($this->records()->total() === 0) {
             $this->warning('No records to export.', position: 'toast-bottom');
 
             return;
@@ -188,11 +188,34 @@ class extends Component {
         }
     }
 
+    public function exportPending(): bool
+    {
+        return $this->activeExportId !== null
+            && $this->exportStatus !== 'completed'
+            && $this->exportStatus !== 'failed';
+    }
+
     public function dismissExportProgress(): void
     {
         $this->activeExportId = null;
         $this->exportStatus = '';
         $this->exportFileName = null;
+    }
+
+    public function cancelExport(): void
+    {
+        if ($this->activeExportId === null) {
+            return;
+        }
+
+        $export = Export::find($this->activeExportId);
+
+        if ($export && in_array($export->status, ['queued', 'processing'], true)) {
+            $export->update(['status' => 'failed']);
+            $this->success('Export cancelled.', position: 'toast-bottom');
+        }
+
+        $this->activeExportId = null;
     }
 
     public function overallJudgement(InspectionRecord $record): ?string
@@ -259,11 +282,11 @@ class extends Component {
 
         return [
             'records' => $this->records(),
-            'exportCount' => (new InspectionRecordFilter($this->filters(), auth()->user()))->query()->count(),
+            'exportCount' => $this->records()->total(),
             'notifications' => $notifications,
             'recentExports' => Export::where('user_id', auth()->id())
                 ->latest()
-                ->take(5)
+                ->take(20)
                 ->get(),
             'headers' => [
                 ['key' => 'date', 'label' => 'Date', 'class' => 'w-28'],
@@ -302,28 +325,28 @@ class extends Component {
         </div>
         <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div>
-                <x-datetime label="Date from" wire:model.live="date_from" icon="o-calendar" type="date" />
+                <x-datetime label="Date from" wire:model.live.debounce.350ms="date_from" icon="o-calendar" type="date" />
             </div>
             <div>
-                <x-datetime label="Date to" wire:model.live="date_to" icon="o-calendar" type="date" />
+                <x-datetime label="Date to" wire:model.live.debounce.350ms="date_to" icon="o-calendar" type="date" />
             </div>
             <div>
-                <x-select label="Station type" wire:model.live="station_type_id" placeholder="All station types" :options="$this->stationTypeOptions()" />
+                <x-select label="Station type" wire:model.live.debounce.250ms="station_type_id" placeholder="All station types" :options="$this->stationTypeOptions()" />
             </div>
             <div>
-                <x-select label="Work station" wire:model.live="work_station_id" placeholder="All work stations" :options="$this->workStationOptions()" />
+                <x-select label="Work station" wire:model.live.debounce.250ms="work_station_id" placeholder="All work stations" :options="$this->workStationOptions()" />
             </div>
             <div>
-                <x-select label="Stage" wire:model.live="stage" placeholder="All stages" :options="$this->stageOptions()" />
+                <x-select label="Stage" wire:model.live.debounce.250ms="stage" placeholder="All stages" :options="$this->stageOptions()" />
             </div>
             <div>
-                <x-select label="Shift" wire:model.live="shift" placeholder="All shifts" :options="$this->shiftOptions()" />
+                <x-select label="Shift" wire:model.live.debounce.250ms="shift" placeholder="All shifts" :options="$this->shiftOptions()" />
             </div>
             <div>
-                <x-select label="Judgement" wire:model.live="judgement" placeholder="All results" :options="$this->judgementOptions()" />
+                <x-select label="Judgement" wire:model.live.debounce.250ms="judgement" placeholder="All results" :options="$this->judgementOptions()" />
             </div>
             <div>
-                <x-input label="Search part" wire:model.live.debounce="search" placeholder="Part number or name..." icon="o-magnifying-glass" clearable />
+                <x-input label="Search part" wire:model.live.debounce.350ms="search" placeholder="Part number or name..." icon="o-magnifying-glass" clearable />
             </div>
         </div>
 
@@ -351,8 +374,8 @@ class extends Component {
     </x-modal>
 
     {{-- Export progress --}}
-    @if ($exportStatus !== '' && $exportStatus !== 'completed' && $exportStatus !== 'failed')
-        <div wire:poll.2s="checkExportStatus">
+    @if ($this->exportPending())
+        <div wire:poll.500ms="checkExportStatus">
             <x-card shadow class="mb-6 border-l-4 border-l-primary">
                 <div class="flex items-center gap-4">
                     <x-icon name="o-arrow-down-tray" class="h-6 w-6 animate-pulse text-primary" />
@@ -360,6 +383,7 @@ class extends Component {
                         <p class="font-medium">Generating report...</p>
                         <p class="text-sm text-base-content/60">{{ $exportFileName }}</p>
                     </div>
+                    <x-button label="Cancel" wire:click="cancelExport" class="btn-ghost btn-sm text-error" spinner="cancelExport" />
                 </div>
                 <x-progress class="progress-primary h-0.5 mt-3" indeterminate />
             </x-card>
@@ -412,7 +436,7 @@ class extends Component {
                 @php
                     $isCurrent = $export->id === $activeExportId;
                 @endphp
-                <div class="flex items-center justify-between py-2 {{ !$loop->last ? 'border-b border-base-200' : '' }} {{ $isCurrent ? 'font-semibold' : '' }}">
+                <div wire:key="{{ 'export-'.$export->id }}" class="flex items-center justify-between py-2 {{ !$loop->last ? 'border-b border-base-200' : '' }} {{ $isCurrent ? 'font-semibold' : '' }}">
                     <div class="flex items-center gap-2 min-w-0">
                         @if ($export->status === 'completed')
                             <x-icon name="o-check-circle" class="h-4 w-4 shrink-0 text-success" />

@@ -49,7 +49,7 @@ class extends Component {
                     <x-icon name="o-cog" class="w-7 h-7 text-primary-content" />
                 </div>
                 <div>
-                    <h1 class="text-2xl font-bold tracking-tight text-base-content">基準 QJUN</h1>
+                    <h1 class="text-2xl font-bold tracking-tight text-base-content">{{ config('app.name') }}</h1>
                     <p class="text-xs text-base-content/50 tracking-wider uppercase font-medium">Quality Management System</p>
                 </div>
             </div>
@@ -88,7 +88,7 @@ class extends Component {
         </div>
 
         <p class="mt-4 text-center text-[10px] text-base-content/30 tracking-wider uppercase">
-            &copy; {{ date('Y') }} 基準 QJUN | <code>Proudly built by <a href="//wa.me/6285160185678">Ramonymous dev</code></a>
+            &copy; {{ date('Y') }} {{ config('app.name') }} — Quality Management System
         </p>
     </div>
 </div>

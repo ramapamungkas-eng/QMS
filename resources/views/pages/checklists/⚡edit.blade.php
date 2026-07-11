@@ -172,6 +172,7 @@ class extends Component {
         }
 
         $this->template->load('sections.fields');
+        $this->success('Section moved up.', position: 'toast-bottom');
     }
 
     public function moveSectionDown(int $sectionId): void
@@ -189,6 +190,7 @@ class extends Component {
         }
 
         $this->template->load('sections.fields');
+        $this->success('Section moved down.', position: 'toast-bottom');
     }
 
     // --- Field CRUD ---
@@ -318,6 +320,7 @@ class extends Component {
         }
 
         $this->template->load('sections.fields');
+        $this->success('Field moved up.', position: 'toast-bottom');
     }
 
     public function moveFieldDown(int $fieldId): void
@@ -335,6 +338,7 @@ class extends Component {
         }
 
         $this->template->load('sections.fields');
+        $this->success('Field moved down.', position: 'toast-bottom');
     }
 
     public function with(): array
@@ -387,7 +391,7 @@ class extends Component {
         <!-- MAIN -->
         <div class="grid gap-6 lg:col-span-9">
             @forelse ($sections as $section)
-                <x-card :title="$section->label" shadow separator>
+                <x-card wire:key="{{ 'section-'.$section->id }}" :title="$section->label" shadow separator>
                     <x-slot:menu>
                         <div class="flex items-center gap-1">
                             @if (!$loop->first)
@@ -427,7 +431,7 @@ class extends Component {
                     @if ($section->fields->isNotEmpty())
                         <div class="divide-y divide-base-200 overflow-hidden rounded-xl border border-base-200">
                             @foreach ($section->fields as $field)
-                                <div class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-base-200/30">
+                                <div wire:key="{{ 'field-'.$field->id }}" class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-base-200/30">
                                     <div class="min-w-0 flex-1">
                                         <div class="flex items-center gap-2">
                                             <span class="font-medium text-sm">{{ $field->label }}</span>
@@ -495,8 +499,14 @@ class extends Component {
     <x-modal wire:model="showSectionModal" :title="$editingSectionId ? 'Edit section' : 'New section'" separator>
         <div class="grid gap-4">
             <x-input label="Label" wire:model="section_label" placeholder="e.g. Visual Check" />
+            @error('section_label')
+                <p class="mt-1 text-xs text-error">{{ $message }}</p>
+            @enderror
             <x-toggle label="Allow multiple rows" wire:model="section_allow_multiple" hint="For multi-row data like Station Spot hardware measurements." />
             <x-input label="Source type" wire:model="section_source_type" placeholder="part_hardware_mappings" hint="Nullable. e.g. part_hardware_mappings" />
+            @error('section_source_type')
+                <p class="mt-1 text-xs text-error">{{ $message }}</p>
+            @enderror
         </div>
 
         <x-slot:actions>
@@ -510,7 +520,13 @@ class extends Component {
         <div class="grid gap-4">
             <div class="grid grid-cols-2 gap-4">
                 <x-input label="Field key" wire:model="field_field_key" placeholder="is_defect" hint="Machine name. Unique within the section." />
+                @error('field_field_key')
+                    <p class="mt-1 text-xs text-error">{{ $message }}</p>
+                @enderror
                 <x-input label="Label" wire:model="field_label" placeholder="Is there a defect?" />
+                @error('field_label')
+                    <p class="mt-1 text-xs text-error">{{ $message }}</p>
+                @enderror
             </div>
 
             <div class="grid grid-cols-2 gap-4">
@@ -526,11 +542,20 @@ class extends Component {
                 />
                 <x-input label="Order" type="number" min="0" wire:model="field_order" hint="Display order." />
             </div>
+            @error('field_field_type')
+                <p class="mt-1 text-xs text-error">{{ $message }}</p>
+            @enderror
+            @error('field_order')
+                <p class="mt-1 text-xs text-error">{{ $message }}</p>
+            @enderror
 
             <x-toggle label="Required" wire:model="field_required" />
 
             @if ($field_field_type === 'enum')
                 <x-input label="Options" wire:model="field_options" placeholder="OK,NG,REPAIR" hint="Comma-separated values." />
+                @error('field_options')
+                    <p class="mt-1 text-xs text-error">{{ $message }}</p>
+                @enderror
             @endif
 
             <hr class="border-base-300" />
@@ -547,12 +572,24 @@ class extends Component {
                         ['id' => 'weld_length_standard', 'name' => 'Weld length standard'],
                     ]"
                 />
+                @error('field_auto_judge_source')
+                    <p class="mt-1 text-xs text-error">{{ $message }}</p>
+                @enderror
 
                 <div class="grid grid-cols-3 gap-4">
                     <x-input label="Min value" wire:model="field_min_value" hint="For limits-based auto-judge." />
                     <x-input label="Max value" wire:model="field_max_value" hint="For limits-based auto-judge." />
                     <x-input label="Unit" wire:model="field_unit" placeholder="mm" />
                 </div>
+                @error('field_min_value')
+                    <p class="mt-1 text-xs text-error">{{ $message }}</p>
+                @enderror
+                @error('field_max_value')
+                    <p class="mt-1 text-xs text-error">{{ $message }}</p>
+                @enderror
+                @error('field_unit')
+                    <p class="mt-1 text-xs text-error">{{ $message }}</p>
+                @enderror
             @endif
         </div>
 

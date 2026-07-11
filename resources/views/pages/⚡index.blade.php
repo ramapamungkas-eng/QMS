@@ -47,11 +47,17 @@ class extends Component
     public function typeStats(): Collection
     {
         $statsService = app(InspectionStatsService::class);
+        $types = $this->accessibleTypes();
 
-        return collect($this->accessibleTypes())
-            ->map(function (StationType $type) use ($statsService) {
-                $stats = $statsService->dailyByType($type, $this->productionDate);
+        $allStats = $statsService->allByTypes($this->productionDate, $types);
+        $statsByType = collect($allStats)->keyBy('id');
+
+        return collect($types)
+            ->map(function (StationType $type) use ($statsByType) {
                 $slug = $type->slug;
+                $stats = $statsByType->get($type->id, [
+                    'total' => 0, 'ok' => 0, 'ng' => 0, 'pass_rate' => 0,
+                ]);
 
                 return [
                     'id' => $type->id,
@@ -300,7 +306,7 @@ class extends Component
                     </thead>
                     <tbody>
                         @foreach($recentNg as $record)
-                            <tr class="hover:bg-error/5">
+                            <tr wire:key="{{ 'ng-'.$record->id }}" class="hover:bg-error/5">
                                 <td class="font-mono py-2">{{ $record->checked_at?->format('H:i') ?? '—' }}</td>
                                 <td class="py-2">
                                     <span class="font-semibold">{{ $record->part?->part_number }}</span>

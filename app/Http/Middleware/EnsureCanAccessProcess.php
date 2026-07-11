@@ -20,7 +20,7 @@ class EnsureCanAccessProcess
         }
 
         abort_unless(
-            $user->process?->name === $processName,
+            $user->load('process')->process?->name === $processName,
             403,
             "You're not assigned to the {$processName} process."
         );

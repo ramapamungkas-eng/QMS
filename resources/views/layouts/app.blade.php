@@ -110,7 +110,6 @@
                     @endif
                 @endforeach
             </x-menu>
-
             {{-- User profile footer --}}
             <div class="mt-auto border-t border-white/10 px-3 py-3">
                 @if($user = auth()->user())
@@ -134,7 +133,7 @@
                             icon="o-power"
                             link="/logout"
                             no-wire-navigate
-                            onclick="return confirm('Are you sure you want to log out?')"
+                            wire:confirm="Are you sure you want to log out?"
                         />
                     </x-dropdown>
                 @endif

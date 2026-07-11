@@ -131,13 +131,30 @@ class extends Component {
         $this->initFieldValues();
     }
 
+    private function getTemplate(): ?\App\Models\ChecklistTemplate
+    {
+        static $cache = [];
+
+        $key = $this->workStationType?->id;
+
+        if ($key === null) {
+            return null;
+        }
+
+        if (! array_key_exists($key, $cache)) {
+            $cache[$key] = app(ChecklistTemplateService::class)->forType($this->workStationType);
+        }
+
+        return $cache[$key];
+    }
+
     protected function initFieldValues(): void
     {
         if (! $this->partId) {
             return;
         }
 
-        $template = app(ChecklistTemplateService::class)->forType($this->workStationType);
+        $template = $this->getTemplate();
 
         if ($template === null) {
             return;
@@ -195,8 +212,9 @@ class extends Component {
 
         $records = InspectionRecord::where('part_id', $this->partId)
             ->whereHas('workStation', fn ($q) => $q->where('station_type_id', $this->workStationType->id))
-            ->with('fieldValues.field')
+            ->with(['fieldValues.field', 'workStation'])
             ->latest('checked_at')
+            ->limit(20)
             ->get();
 
         return [
@@ -208,7 +226,7 @@ class extends Component {
 
     public function rules(): array
     {
-        $template = app(ChecklistTemplateService::class)->forType($this->workStationType);
+        $template = $this->getTemplate();
         $rules = [
             'workStationId' => ['required', 'exists:work_stations,id'],
             'stage' => ['required', Rule::enum(InspectionStage::class)],
@@ -271,7 +289,7 @@ class extends Component {
                 'stage' => $this->stage,
             ]);
 
-            $template = app(ChecklistTemplateService::class)->forType($this->workStationType);
+            $template = $this->getTemplate();
 
             if ($template === null) {
                 return $record;
@@ -328,8 +346,7 @@ class extends Component {
 
     public function with(): array
     {
-        $templateService = app(ChecklistTemplateService::class);
-        $template = $templateService->forType($this->workStationType);
+        $template = $this->getTemplate();
 
         $backUrl = route('inspections.' . $this->workStationType->slug . '.index');
 
@@ -411,10 +428,15 @@ class extends Component {
                         @else
                             <x-input
                                 placeholder="Search part number or name..."
-                                wire:model.live.debounce="partSearch"
+                                wire:model.live.debounce.350ms="partSearch"
                                 icon="o-magnifying-glass"
                                 clearable
                             />
+
+                            <div wire:loading wire:target="partSearch" class="mt-2 text-center">
+                                <x-icon name="o-arrow-path" class="h-5 w-5 animate-spin inline-block text-primary" />
+                                <span class="text-sm text-base-content/50">Searching...</span>
+                            </div>
 
                             @if ($partSearchResults->isNotEmpty())
                                 <div class="mt-2 divide-y divide-base-300 overflow-hidden rounded-xl border border-base-300">
@@ -534,7 +556,7 @@ class extends Component {
                                     </div>
                                     <div class="flex gap-3">
                                         <x-button label="No, go back" link="{{ $backUrl }}" />
-                                        <x-button label="Yes, recheck" wire:click="confirmRecheck" class="btn-warning" icon="o-check" />
+                                        <x-button label="Yes, recheck" wire:click="confirmRecheck" spinner class="btn-warning" icon="o-check" />
                                     </div>
                                 </div>
                             </x-card>
@@ -585,12 +607,12 @@ class extends Component {
                             @foreach ($template->sections as $sectionIndex => $section)
                                 @continue ($section->label === 'Weld Length Measurement' && ! $weldStandardExists)
 
-                                <x-card title="{{ $section->label }}" shadow>
+                                <x-card wire:key="{{ 'section-'.$sectionIndex }}" title="{{ $section->label }}" shadow>
                                     <div class="grid gap-6">
                                         @if ($section->allow_multiple && $section->source_type === 'part_hardware_mappings')
                                             {{-- Multi-row section (e.g. Station Spot hardware measurements) --}}
                                             @forelse ($groupData as $groupIndex => $group)
-                                                <div class="rounded-xl border border-base-300 p-4">
+                                                <div wire:key="{{ 'group-'.$groupIndex }}" class="rounded-xl border border-base-300 p-4">
                                                     <div class="mb-3 flex items-baseline justify-between gap-2">
                                                         <p class="text-sm font-semibold text-base-content/70">
                                                             {{ $group['source_label'] }}
@@ -603,7 +625,7 @@ class extends Component {
                                                     </div>
                                                     <div class="grid gap-4">
                                                         @foreach ($section->fields as $field)
-                                                            <div>
+                                                            <div wire:key="{{ 'field-'.$field->id }}">
                                                                 @if ($field->field_type === 'numeric')
                                                                     <x-input
                                                                         label="{{ $group['source_label'] }} — {{ $field->label }}"
@@ -629,7 +651,7 @@ class extends Component {
                                         @else
                                             {{-- Standard fields --}}
                                             @foreach ($section->fields as $field)
-                                                <fieldset>
+                                                <fieldset wire:key="{{ 'field-'.$field->id }}">
                                                     <legend class="mb-2 flex items-center gap-2 text-sm font-medium">
                                                         <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs text-primary-content">{{ $sectionIndex + 1 }}</span>
                                                         {{ $field->label }}
@@ -653,7 +675,7 @@ class extends Component {
                                                     @elseif ($field->field_type === 'enum')
                                                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                                                             @foreach ($field->options ?? [] as $option)
-                                                                <label
+                                                                <label wire:key="{{ 'option-'.$loop->index }}"
                                                                     class="flex cursor-pointer flex-col gap-1 rounded-xl border p-3 text-sm transition
                                                                         {{ ($values[$field->field_key] ?? '') === $option ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-base-300 hover:border-base-content/30' }}"
                                                                 >

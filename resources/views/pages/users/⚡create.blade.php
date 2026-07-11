@@ -173,7 +173,7 @@ class extends Component {
                         <p class="text-sm text-base-content/60">What this person is allowed to do.</p>
                         <div class="mt-4 grid gap-3 sm:grid-cols-3">
                             @foreach ($roles as $option)
-                                <label
+                                <label wire:key="{{ 'role-'.$option['id'] }}"
                                     class="flex cursor-pointer flex-col gap-1 rounded-xl border px-3 py-3 text-sm transition
                                         {{ $role === $option['id'] ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-base-300 hover:border-base-content/30' }}"
                                 >
@@ -185,6 +185,10 @@ class extends Component {
                                 </label>
                             @endforeach
                         </div>
+
+                        @error('role')
+                            <p class="mt-1 text-xs text-error">{{ $message }}</p>
+                        @enderror
 
                         @if ($role === \App\Enums\UserRole::Checker->value)
                             <div class="mt-4">

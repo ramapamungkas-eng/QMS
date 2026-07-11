@@ -44,7 +44,7 @@ class ChecklistTemplateService
             return $all;
         }
 
-        $processName = $user->process?->name;
+        $processName = $user->load('process')->process?->name;
 
         return array_values(array_filter($all, fn (StationType $st) => $st->process?->name === $processName));
     }

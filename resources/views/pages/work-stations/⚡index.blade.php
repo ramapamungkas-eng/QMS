@@ -44,7 +44,7 @@ class extends Component {
 <div>
     <x-header title="Work Stations" subtitle="Physical lines for Stamping and Welding." separator progress-indicator>
         <x-slot:middle class="!justify-end">
-            <x-input placeholder="Search station name or process..." wire:model.live.debounce="search" clearable icon="o-magnifying-glass" />
+            <x-input placeholder="Search station name or process..." wire:model.live.debounce.350ms="search" clearable icon="o-magnifying-glass" />
         </x-slot:middle>
         <x-slot:actions>
             <x-button label="New work station" link="{{ route('work-stations.create') }}" icon="o-plus" class="btn-primary" responsive />
@@ -53,10 +53,10 @@ class extends Component {
 
     <div class="grid gap-6">
         @forelse ($workStations as $processName => $stations)
-            <x-card :title="$processName" subtitle="{{ count($stations) }} station(s)" shadow>
+            <x-card wire:key="{{ 'process-'.$loop->index }}" :title="$processName" subtitle="{{ count($stations) }} station(s)" shadow>
                 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     @foreach ($stations as $station)
-                        <div class="rounded-xl border border-base-300 bg-base-100 p-4 transition hover:border-base-content/30 hover:shadow-sm">
+                        <div wire:key="{{ 'station-'.$station->id }}" class="rounded-xl border border-base-300 bg-base-100 p-4 transition hover:border-base-content/30 hover:shadow-sm">
                             <div class="flex items-start justify-between gap-2">
                                 <div class="min-w-0 flex-1">
                                     <p class="truncate font-medium">{{ $station->name }}</p>

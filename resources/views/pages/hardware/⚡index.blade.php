@@ -19,19 +19,11 @@ class extends Component {
     #[Url(history: true)]
     public string $search = '';
 
-    public bool $drawer = false;
-
     public array $sortBy = ['column' => 'part_name', 'direction' => 'asc'];
 
     public function updatedSearch(): void
     {
         $this->resetPage();
-    }
-
-    public function clear(): void
-    {
-        $this->reset('search');
-        $this->success('Filters cleared.', position: 'toast-bottom');
     }
 
     public function delete(int $id): void
@@ -88,10 +80,9 @@ class extends Component {
 <div>
     <x-header title="Hardware Types" subtitle="Nuts, bolts, and other hardware used in Station Spot welding." separator progress-indicator>
         <x-slot:middle class="!justify-end">
-            <x-input placeholder="Search part number or name..." wire:model.live.debounce="search" clearable icon="o-magnifying-glass" />
+            <x-input placeholder="Search part number or name..." wire:model.live.debounce.350ms="search" clearable icon="o-magnifying-glass" />
         </x-slot:middle>
         <x-slot:actions>
-            <x-button label="Filters" @click="$wire.drawer = true" responsive icon="o-funnel" />
             <x-button label="New hardware" link="{{ route('hardware.create') }}" icon="o-plus" class="btn-primary" responsive />
         </x-slot:actions>
     </x-header>
@@ -128,13 +119,4 @@ class extends Component {
             @endscope
         </x-table>
     </x-card>
-
-    <x-drawer wire:model="drawer" title="Filters" right separator with-close-button class="lg:w-1/3">
-        <x-input placeholder="Search part number or name..." wire:model.live.debounce="search" icon="o-magnifying-glass" @keydown.enter="$wire.drawer = false" />
-
-        <x-slot:actions>
-            <x-button label="Reset" icon="o-x-mark" wire:click="clear" spinner />
-            <x-button label="Done" icon="o-check" class="btn-primary" @click="$wire.drawer = false" />
-        </x-slot:actions>
-    </x-drawer>
 </div>

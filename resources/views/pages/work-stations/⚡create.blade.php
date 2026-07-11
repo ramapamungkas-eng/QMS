@@ -94,7 +94,7 @@ class extends Component {
                 <x-card title="Station type" subtitle="Drives which checklist form and judgement logic this station uses." shadow class="mt-6">
                     <div class="grid gap-3">
                         @foreach ($typeOptions as $option)
-                            <label
+                            <label wire:key="{{ 'type-'.$option['id'] }}"
                                 class="flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition
                                     {{ $station_type_id === $option['id'] ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-base-300 hover:border-base-content/30' }}"
                             >
@@ -106,6 +106,10 @@ class extends Component {
                             </label>
                         @endforeach
                     </div>
+
+                    @error('station_type_id')
+                        <p class="mt-1 text-xs text-error">{{ $message }}</p>
+                    @enderror
                 </x-card>
             </div>
 

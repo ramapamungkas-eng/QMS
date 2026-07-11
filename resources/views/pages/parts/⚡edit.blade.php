@@ -371,7 +371,7 @@ class extends Component {
                         <p class="mb-3 text-xs text-base-content/50">This part is inspected at:</p>
                         <div class="flex flex-wrap gap-4">
                             @foreach ($stationTypeOptions as $st)
-                                <label class="flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-3 text-sm transition hover:border-base-content/30 has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:font-medium">
+                                <label wire:key="{{ 'st-'.$st->id }}" class="flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-3 text-sm transition hover:border-base-content/30 has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:font-medium">
                                     <input type="checkbox" wire:model.live="stationTypes" value="{{ $st->id }}" class="checkbox checkbox-primary checkbox-sm" />
                                     {{ $st->name }}
                                 </label>
@@ -485,14 +485,32 @@ class extends Component {
     <x-modal wire:model="showMappingModal" :title="$editingMappingId ? 'Edit hardware mapping' : 'Add hardware mapping'" separator>
         <div class="grid gap-4">
             <x-select label="Hardware" wire:model="mapping_hardware_type_id" :options="$hardwareTypeOptions" placeholder="Select hardware..." />
+            @error('mapping_hardware_type_id')
+                <p class="mt-1 text-xs text-error">{{ $message }}</p>
+            @enderror
             <x-select label="Measurement type" wire:model="mapping_measurement_type" :options="$measurementTypeOptions" placeholder="Select..." />
+            @error('mapping_measurement_type')
+                <p class="mt-1 text-xs text-error">{{ $message }}</p>
+            @enderror
             <x-input label="Usage qty" type="number" min="1" wire:model="mapping_usage_qty" hint="How many are physically installed (checker still enters one measurement)." />
+            @error('mapping_usage_qty')
+                <p class="mt-1 text-xs text-error">{{ $message }}</p>
+            @enderror
 
             <div class="grid grid-cols-3 gap-3">
                 <x-input label="Min value" wire:model="mapping_min_value" />
                 <x-input label="Max value" wire:model="mapping_max_value" />
                 <x-input label="Unit" wire:model="mapping_unit" />
             </div>
+            @error('mapping_min_value')
+                <p class="mt-1 text-xs text-error">{{ $message }}</p>
+            @enderror
+            @error('mapping_max_value')
+                <p class="mt-1 text-xs text-error">{{ $message }}</p>
+            @enderror
+            @error('mapping_unit')
+                <p class="mt-1 text-xs text-error">{{ $message }}</p>
+            @enderror
         </div>
 
         <x-slot:actions>
@@ -505,12 +523,24 @@ class extends Component {
     <x-modal wire:model="showWeldModal" :title="$editingWeldStandardId ? 'Edit weld length standard' : 'Add weld length standard'" separator>
         <div class="grid gap-4">
             <x-select label="Work Station" wire:model="weld_work_station_id" :options="$robotWorkStationOptions" placeholder="Select robot work station..." />
+            @error('weld_work_station_id')
+                <p class="mt-1 text-xs text-error">{{ $message }}</p>
+            @enderror
 
             <div class="grid grid-cols-3 gap-3">
                 <x-input label="Min length" wire:model="weld_min_length" />
                 <x-input label="Max length" wire:model="weld_max_length" />
                 <x-input label="Unit" wire:model="weld_unit" />
             </div>
+            @error('weld_min_length')
+                <p class="mt-1 text-xs text-error">{{ $message }}</p>
+            @enderror
+            @error('weld_max_length')
+                <p class="mt-1 text-xs text-error">{{ $message }}</p>
+            @enderror
+            @error('weld_unit')
+                <p class="mt-1 text-xs text-error">{{ $message }}</p>
+            @enderror
         </div>
 
         <x-slot:actions>

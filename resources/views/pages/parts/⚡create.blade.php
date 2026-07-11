@@ -130,7 +130,7 @@ class extends Component {
                         <p class="mb-3 text-xs text-base-content/50">This part is inspected at:</p>
                         <div class="flex flex-wrap gap-4">
                             @foreach ($stationTypeOptions as $st)
-                                <label class="flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-3 text-sm transition hover:border-base-content/30 has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:font-medium">
+                                <label wire:key="{{ 'st-'.$st->id }}" class="flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-3 text-sm transition hover:border-base-content/30 has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:font-medium">
                                     <input type="checkbox" wire:model="stationTypes" value="{{ $st->id }}" class="checkbox checkbox-primary checkbox-sm" />
                                     {{ $st->name }}
                                 </label>

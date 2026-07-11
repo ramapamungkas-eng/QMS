@@ -212,7 +212,7 @@ class extends Component
             ->with(['inspectionRecords' => function ($query) use ($targetDate) {
                 $query->whereDate('production_date', $targetDate)
                     ->whereHas('workStation', fn (Builder $q) => $q->where('station_type_id', $this->workStationType->id))
-                    ->with(['workStation', 'fieldValues.field'])
+                    ->with(['workStation', 'fieldValues.field', 'checker'])
                     ->orderBy('stage');
             }])
             ->when($this->search, function (Builder $q) {
@@ -551,9 +551,9 @@ class extends Component
     </div>
 
     <x-drawer wire:model="drawer" title="Filters" right separator with-close-button class="lg:w-1/3">
-        <x-input type="date" label="Production date" wire:model.live="productionDate" icon="o-calendar" />
+        <x-input type="date" label="Production date" wire:model.live.debounce.250ms="productionDate" icon="o-calendar" />
         @if (count($workStationOptions) > 1)
-            <x-select label="Work station" wire:model.live="workStationId" :options="$workStationOptions" placeholder="All stations" class="mt-4" />
+            <x-select label="Work station" wire:model.live.debounce.250ms="workStationId" :options="$workStationOptions" placeholder="All stations" class="mt-4" />
         @endif
 
         <x-slot:actions>
@@ -612,7 +612,7 @@ class extends Component
                     <div class="space-y-3 md:space-y-4">
                         @foreach($stageHistory as $history)
                             @php $judgement = $history['judgement']; @endphp
-                            <div class="relative pl-8 md:pl-10">
+                            <div wire:key="{{ 'history-'.$loop->index }}" class="relative pl-8 md:pl-10">
                                 <span @class([
                                     'absolute left-0 top-3 md:top-4 flex h-6 w-6 md:h-8 md:w-8 items-center justify-center rounded-full text-white text-[9px] md:text-xs font-bold ring-2 md:ring-4 ring-base-100 shadow',
                                     'bg-success' => $judgement === 'ok',
@@ -657,7 +657,7 @@ class extends Component
                                             </thead>
                                             <tbody>
                                                 @forelse ($history['details'] as $detail)
-                                                    <tr class="hover:bg-base-200/30">
+                                                    <tr wire:key="{{ 'detail-'.$loop->index }}" class="hover:bg-base-200/30">
                                                         <td class="py-1.5 md:py-2">
                                                             <div class="font-semibold">{{ $detail['field_label'] }}</div>
                                                             @if ($detail['source_label'])
