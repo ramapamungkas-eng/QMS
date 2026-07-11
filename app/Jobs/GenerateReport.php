@@ -12,7 +12,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Storage;
 
 class GenerateReport implements ShouldQueue
 {
@@ -42,11 +42,9 @@ class GenerateReport implements ShouldQueue
             'progress' => 10,
         ]);
 
-        Excel::store(
-            new InspectionReportExport($this->filters, $this->user),
-            $this->path,
-            'public',
-        );
+        $fullPath = Storage::disk('public')->path($this->path);
+
+        (new InspectionReportExport($this->filters, $this->user))->generate($fullPath);
 
         $export->update([
             'status' => 'completed',

@@ -7,22 +7,15 @@ use App\Models\User;
 use App\Services\InspectionJudgementService;
 use App\Services\InspectionRecordFilter;
 use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Builder;
-use Maatwebsite\Excel\Concerns\FromQuery;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
-use Maatwebsite\Excel\Concerns\WithChunkReading;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
-use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\WithTitle;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Color;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
-/** @implements WithMapping<InspectionRecord> */
-class InspectionReportExport implements FromQuery, ShouldAutoSize, WithChunkReading, WithHeadings, WithMapping, WithStyles, WithTitle
+class InspectionReportExport
 {
     /** @var array<string, mixed> */
     protected array $filters;
@@ -36,19 +29,34 @@ class InspectionReportExport implements FromQuery, ShouldAutoSize, WithChunkRead
         $this->user = $user;
     }
 
-    public function title(): string
+    public function generate(string $path): void
     {
-        return 'Inspection Records';
-    }
+        $query = (new InspectionRecordFilter($this->filters, $this->user))->queryOrdered();
 
-    /** @return Builder<InspectionRecord> */
-    public function query(): Builder
-    {
-        return (new InspectionRecordFilter($this->filters, $this->user))->queryOrdered();
+        $spreadsheet = new Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Inspection Records');
+
+        $sheet->fromArray($this->headings(), null, 'A1');
+
+        $row = 2;
+        $query->chunk(200, function ($records) use ($sheet, &$row) {
+            foreach ($records as $record) {
+                $sheet->fromArray($this->map($record), null, "A{$row}");
+                $row++;
+            }
+        });
+
+        $this->applyStyles($sheet);
+
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($path);
+
+        $spreadsheet->disconnectWorksheets();
     }
 
     /** @return list<string> */
-    public function headings(): array
+    private function headings(): array
     {
         return [
             'Production Date',
@@ -66,7 +74,7 @@ class InspectionReportExport implements FromQuery, ShouldAutoSize, WithChunkRead
     }
 
     /** @return list<mixed> */
-    public function map($record): array
+    private function map(InspectionRecord $record): array
     {
         $service = app(InspectionJudgementService::class);
         $judgement = $service->stageOverall($record->fieldValues);
@@ -91,13 +99,7 @@ class InspectionReportExport implements FromQuery, ShouldAutoSize, WithChunkRead
         ];
     }
 
-    public function chunkSize(): int
-    {
-        return 200;
-    }
-
-    /** @return array<int, array<string, mixed>> */
-    public function styles(Worksheet $sheet): array
+    private function applyStyles(Worksheet $sheet): void
     {
         $highestRow = $sheet->getHighestRow();
         $highestColumn = $sheet->getHighestColumn();
@@ -165,7 +167,5 @@ class InspectionReportExport implements FromQuery, ShouldAutoSize, WithChunkRead
 
         // Header row height
         $sheet->getRowDimension(1)->setRowHeight(24);
-
-        return [];
     }
 }
